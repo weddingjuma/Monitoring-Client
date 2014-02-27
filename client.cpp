@@ -49,10 +49,10 @@ using namespace std;
 
 /** Struct defining logged on users **/
 typedef struct{
-    std::string name;
-    std::string terminal;
-    bool local;
-    time_t started;
+    std::string name; // User name
+    std::string terminal; // Which terminal (ssh, X, etc) the user is logged into
+    bool local; // locally logged in (Windows, X) or remotely logged in (SSH, etc)
+    time_t started; // timestamp when the user was first detected
 } user;
 
 /** The following settings are defaults.  They will read in default values from a config file if it exists or use these.  The user has the option of specifying
@@ -62,9 +62,9 @@ will be reflected in the default.cfg
 static int EVENTSIZE = 32;
 static bool REQUEST_PFILE = false; // set when pfile is empty (initial install) or when some other circumstance has been met to ask the server for a new program file
 static bool REMOTE = true;
-static std::string SERVER_ADDRESS = "";
-static int SEND_PORT = 0;
-static int LISTEN_PORT = 0;
+static std::string SERVER_ADDRESS = "155.97.17.169";
+static int SEND_PORT = 16100;
+static int LISTEN_PORT = 16200;
 static int FREQUENCY = 1; // Frequency to run the gathering portion, a multiple of 60 seconds
 static int CALL_HOME = 10; // How many minutes to wait with no server contact before attempting to call home
 std::string REMOTE_RESTRICTED_MSG = "Your account is not permitted to use this machine.  You are being logged off now";
