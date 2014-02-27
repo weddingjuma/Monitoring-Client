@@ -62,9 +62,9 @@ will be reflected in the default.cfg
 static int EVENTSIZE = 32;
 static bool REQUEST_PFILE = false; // set when pfile is empty (initial install) or when some other circumstance has been met to ask the server for a new program file
 static bool REMOTE = true;
-static std::string SERVER_ADDRESS = "155.97.17.169";
-static int SEND_PORT = 16100;
-static int LISTEN_PORT = 16200;
+static std::string SERVER_ADDRESS = "";
+static int SEND_PORT = 0;
+static int LISTEN_PORT = 0;
 static int FREQUENCY = 1; // Frequency to run the gathering portion, a multiple of 60 seconds
 static int CALL_HOME = 10; // How many minutes to wait with no server contact before attempting to call home
 std::string REMOTE_RESTRICTED_MSG = "Your account is not permitted to use this machine.  You are being logged off now";
@@ -2067,11 +2067,6 @@ int main(int ac, char **av)
 
 	/* Create directories if they don't already exist */
 	create_directories();
-
-	//REQUEST_PFILE = true; /** BUG:: not getting a new program list when run as a service?  Either that or its not writing it out, but something is causing it to not set the pnumber **/
-	//set_program_list();
-
-
 
 	// Temporarily remove config stuff until I'm ready to deal with that headache of cross platform porting
 	/*
