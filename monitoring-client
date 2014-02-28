@@ -7,23 +7,17 @@ description="Monitoring-Client user and program statistical gathering service"
 # Dependencies of Monitoring-Client
 depend() {
   need net
-  need dns
   need localmount
 }
 
 start() {
-  if [ "${RC_CMD}" = "restart" ];
-  then
-	# Do something here in case a restart requires more than stop, start
-  fi
-  
   ebegin "Starting Monitoring-Client"
-  start-stop-daemon  --start --exec /opt/monitoring/client --pidfile /var/run/monitoring-client.pid --make-pidfile --name monitoring-client
+  start-stop-daemon  --background --start --exec /opt/monitoring/monitoring-client &>/dev/null --pidfile /var/run/monitoring-client.pid --make-pidfile --name monitoring-client
   eend $?
 }
 
 stop() {
   ebegin "Stopping Monitoring-Client"
-  start-stop-daemon --stop --exec /opt/monitoring/client --pidfile /var/run/monitoring-client.pid
+  start-stop-daemon --stop --exec /opt/monitoring/monitoring-client --pidfile /var/run/monitoring-client.pid
   eend $?
 }
