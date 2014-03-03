@@ -25,7 +25,7 @@
 #include <boost/program_options/detail/config_file.hpp>
 
 #include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/ini_parser.hpp>
+#include <boost/property_tree/xml_parser.hpp>
 
 #include <signal.h>
 
@@ -45,6 +45,7 @@
 
 /** Namespaces **/
 using boost::asio::ip::tcp;
+using boost::property_tree::ptree;
 using namespace std;
 
 /** Struct defining logged on users **/
@@ -62,9 +63,9 @@ will be reflected in the default.cfg
 static int EVENTSIZE = 32;
 static bool REQUEST_PFILE = false; // set when pfile is empty (initial install) or when some other circumstance has been met to ask the server for a new program file
 static bool REMOTE = true;
-static std::string SERVER_ADDRESS = "";
-static int SEND_PORT = ;
-static int LISTEN_PORT = ;
+static std::string SERVER_ADDRESS = "155.97.17.169";
+static int SEND_PORT = 16100;
+static int LISTEN_PORT = 16200;
 static int FREQUENCY = 1; // Frequency to run the gathering portion, a multiple of 60 seconds
 static int CALL_HOME = 10; // How many minutes to wait with no server contact before attempting to call home
 std::string REMOTE_RESTRICTED_MSG = "Your account is not permitted to use this machine.  You are being logged off now";
@@ -94,7 +95,7 @@ std::vector<unsigned char> CURRENT_EVENT;
 
 #ifdef __linux__
 char *EVENT_FILE = (char*)"/opt/monitoring/data/events";
-char *ERR_LOG = (char*)"/var/log/lmclient_errors";
+char *ERR_LOG = (char*)"/var/log/monitoring-client.log";
 char *P_FILE = (char*)"/opt/monitoring/config/masterlist.txt";
 #endif
 #ifdef _WIN32
@@ -2067,6 +2068,12 @@ int main(int ac, char **av)
 
 	/* Create directories if they don't already exist */
 	create_directories();
+
+	ptree pt; // empty property tree object
+
+	read_xml("/opt/monitoring/config/default.cfg", pt); // Load XML file into property tree.  If reading fails (for whatever reason) an exception is thrown so need to handle it
+	std::string path = pt.get<std::string>("path.plist");
+	std::cout << "path -- " << path << std::endl;
 
 	// Temporarily remove config stuff until I'm ready to deal with that headache of cross platform porting
 	/*
