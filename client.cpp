@@ -60,18 +60,19 @@ typedef struct{
 a configuration file at runtime that the Client can use instead.  The Server will assume that the default config file will be used and any changes made by the Server
 will be reflected in the default.cfg
 **/
-static int EVENTSIZE = 32;
+int EVENTSIZE;
 static bool REQUEST_PFILE = false; // set when pfile is empty (initial install) or when some other circumstance has been met to ask the server for a new program file
-static bool REMOTE = true;
-static std::string SERVER_ADDRESS = "155.97.17.169";
-static int SEND_PORT = 16100;
-static int LISTEN_PORT = 16200;
-static int FREQUENCY = 1; // Frequency to run the gathering portion, a multiple of 60 seconds
-static int CALL_HOME = 10; // How many minutes to wait with no server contact before attempting to call home
-std::string REMOTE_RESTRICTED_MSG = "Your account is not permitted to use this machine.  You are being logged off now";
-std::string LOCAL_RESTRICTED_MSG = "Your account is not permitted to use this machine.  You are being logged off now";
-std::string REMOTE_TIME_MSG = "Your account time limit has expired, and you will be logged off";
-std::string LOCAL_TIME_MSG = "Your account time limit has expired, and you will be logged off";
+std::string SERVER_ADDRESS;
+int SEND_PORT;
+int LISTEN_PORT;
+int FREQUENCY; // Frequency to run the gathering portion, a multiple of 60 seconds
+int CALL_HOME; // How many minutes to wait with no server contact before attempting to call home
+//static std::vector<std::string> USER_NAMES_IGNORED; /** Will store the user names from the config file that will be ignored, like Administrator, etc.. **/
+
+std::string RESTRICTED_MSG; // Account is not allowed to login to this machine
+std::string EXPIRE_MSG; // Account nearing expiration for allowed login time
+std::string EXPIRED_MSG; // Account has expired and login is no longer permitted
+std::vector<int> MSG_DISPLAY_TIMES; // Vector holding a set of minutes telling when to display the EXPIRE message when subtracted from the epiration time (15 min from expiration, 5, 1, etc..)
 
 static std::string BLOCKED_REGEX; // Holds the string of regex patterns for user accounts that will be blocked on this machine
 static std::map<std::string, std::vector<std::string> > SCRIPTS; // map Script => Time
@@ -79,7 +80,6 @@ static std::map<std::string, time_t> GUEST_EXPIRATION; // store current guest ac
 static std::vector<std::string> EVENTS; /** This will hold the currently gathered EVENTS that we'll send to the Server **/
 static std::vector<std::string> PROGRAM_LIST; /** This will hold the current program list **/
 static int PROGRAM_COUNT = 0; /** This will be the total number of programs currently being monitored, so that we aren't going to disk repeatedly to count **/
-static std::vector<std::string> USER_NAMES_IGNORED; /** Will store the user names from the config file that will be ignored, like Administrator, etc.. **/
 static bool LOGGED_IN = false;
 static unsigned int *CURRENT_EVENT_BLOCK;
 static boost::mutex cu_mutex; /* Mutex */
@@ -89,7 +89,7 @@ static std::map<std::string, int> timeLimitAccounts; /* Holds all accounts being
 static std::vector<std::string> loginRestrictedAccounts; /* Holds all accounts that are restricted from logging into specific machines */
 time_t LAST_SERVER_COMMUNICATION;
 static bool L_RUNNING = false;
-static int ALLOWED = 0x0; /* bit combination representing allowed accounts on this machine, 1 == not allowed, 0 == allowed */
+static int ALLOWED = 0x0; /* bit combination representing allowed accounts on this machine, 1 == not allowed, 0 == allowed */ /** Not needed????? **/
 boost::mutex event_file_mutex;
 std::vector<unsigned char> CURRENT_EVENT;
 
@@ -97,11 +97,13 @@ std::vector<unsigned char> CURRENT_EVENT;
 char *EVENT_FILE = (char*)"/opt/monitoring/data/events";
 char *ERR_LOG = (char*)"/var/log/monitoring-client.log";
 char *P_FILE = (char*)"/opt/monitoring/config/masterlist.txt";
+char *CONFIG = (char*)"/opt/monitoring/config/default.cfg";
 #endif
 #ifdef _WIN32
 char *EVENT_FILE = (char*)"C:\\Tools\\Monitoring\\data\\events.txt";
 char *ERR_LOG = (char*)"C:\\Tools\\Monitoring\\log\\errors.txt";
 char *P_FILE = (char*)"C:\\Tools\\Monitoring\\Config\\masterlist.txt";
+char *CONFIG = (char*)"C:\\Tools\\Monitoring\\Config\\default.cfg";
 #endif
 
 /** Windows Function prototypes go here **/
@@ -606,7 +608,7 @@ std::cout << "LOGGED IN" << std::endl;
             //    set_program_list();
             //    pcount = prog_number();
             //}
-
+std::cout << "pcount " << EVENTSIZE << std::endl;
 			int block = 0;
 			if(pcount % EVENTSIZE != 0)
 				block = (pcount / EVENTSIZE) + 1;
@@ -719,6 +721,7 @@ std::cout << "block - " << block << std::endl;
 				efile.close();
 			}catch(std::exception &e){
 				/** LOGGING TODO **/
+				std::cout << "Gather EVENT File exception: " << e.what() << std::endl;
 			}
 /*** END TESTING SECTION ***/
 		}
@@ -1557,6 +1560,8 @@ void linux_logoff_user(std::string u)
 **/
 void send_local_restricted_message()
 {
+/** TODO!!!!!!!!!!!!! **/
+/*
     FILE *f;
     std::string cmd = "xmessage -center ";
     cmd += LOCAL_RESTRICTED_MSG;
@@ -1570,6 +1575,7 @@ void send_local_restricted_message()
 	f = _popen(cmd.c_str(), "w");
 	fclose(f);
 #endif
+*/
 }
 
 /**
@@ -1577,6 +1583,8 @@ void send_local_restricted_message()
 **/
 void send_local_time_message()
 {
+/** TODO!!!!!!!!!!!!!!!!!!!! **/
+/*
     FILE *f;
     std::string cmd = "xmessage -center ";
     cmd += LOCAL_TIME_MSG;
@@ -1590,6 +1598,7 @@ void send_local_time_message()
 	f = _popen(cmd.c_str(), "w");
 	fclose(f);
 #endif
+*/
 }
 
 /**
@@ -1598,6 +1607,8 @@ void send_local_time_message()
 **/
 void send_remote_restricted_message(std::string pts)
 {
+/** TODO!!!!!!!!!!! **/
+/*
     FILE *f;
     size_t pos = pts.find("/");
 
@@ -1634,6 +1645,7 @@ void send_remote_restricted_message(std::string pts)
         }
         fLog.close();
     }
+    */
 }
 
 /**
@@ -1641,6 +1653,8 @@ void send_remote_restricted_message(std::string pts)
 **/
 void send_remote_time_message(std::string pts)
 {
+/** TODO!!!!!!!!!!!!!!!!!!!! **/
+/*
     FILE *f;
     size_t pos = pts.find("/");
     if(pos != std::string::npos)
@@ -1676,6 +1690,7 @@ void send_remote_time_message(std::string pts)
         }
         fLog.close();
     }
+    */
 }
 
 /**
@@ -1811,7 +1826,7 @@ bool linux_logged_in()
     std::string name;
     for(int i = 0; i < olines.size(); i++)
     {
-        vector<string> splits = split_string(olines[i], " ", REMOTE); // REMOTE boolean flag determines if we are checking for remote sessions??
+        vector<string> splits = split_string(olines[i], " ", true); // REMOTE boolean flag determines if we are checking for remote sessions??
 
         for(int i2 = 0; i2 < splits.size(); i2++)
         {
@@ -2067,124 +2082,92 @@ int main(int ac, char **av)
     LAST_SERVER_COMMUNICATION = 0;
 
 	/* Create directories if they don't already exist */
-	create_directories();
+	create_directories(); /** Take a look at this further and make sure during INSTALL everything is setup the way you want, like config, child directories, etc !! **/
 
 	ptree pt; // empty property tree object
 
-	read_xml("/opt/monitoring/config/default.cfg", pt); // Load XML file into property tree.  If reading fails (for whatever reason) an exception is thrown so need to handle it
-	std::string path = pt.get<std::string>("path.plist");
-	std::cout << "path -- " << path << std::endl;
-
-	// Temporarily remove config stuff until I'm ready to deal with that headache of cross platform porting
-	/*
-    namespace po = boost::program_options;
-    po::options_description desc("Linux Client Options");
-    desc.add_options()
-        ("help", "Display this message")
-        ("about", "Display about information")
-        ("config", po::value< vector<std::string> >(), "Specify a different config file to use (some settings must match Servers settings)")
-		;
-    po::variables_map vm;
-    po::store(po::parse_command_line(ac, av, desc), vm);
-	po::notify(vm);
-    if(vm.count("help")){
-        std::cout << "\n" << desc << "\n\n";
-        return 1;
-    }
-    if(vm.count("about")){
-        std::cout << "\nLogMonitoring Client v3.0\n\ncreated by Seth Walsh(seth.walsh@utah.edu)\n\nAbout -- User and program statistical monitoring software.  Records machine usage, logged in status, and program usage.\nHas the ability to monitor time-restricted, and access-restricted accounts and display warning messages to the \nuser if their account expires or is not authorized to use the machine.\n\n";
-        return 1;
-    }
-    if(vm.count("config")){
-        // Read spedified config file
-        vector<std::string> v = vm["config"].as< vector<std::string> >();
-        std::cout << "Config file: " << v[0] << "\n";
-
-        boost::property_tree::ptree pt;
-        boost::property_tree::ini_parser::read_ini(v[0], pt);
-        SERVER_ADDRESS = pt.get<std::string>("network.server");
-        LISTEN_PORT = pt.get<int>("network.listen_port");
-        SEND_PORT = pt.get<int>("network.send_port");
-        REMOTE = pt.get<bool>("umessage.remote");
-        EVENTSIZE = pt.get<int>("settings.event_size");
-        FREQUENCY = pt.get<int>("settings.frequency");
-        CALL_HOME = pt.get<int>("settings.call_home");
-        LOCAL_RESTRICTED_MSG = pt.get<std::string>("messages.local_restricted");
-        REMOTE_RESTRICTED_MSG = pt.get<std::string>("messages.remote_restricted");
-        LOCAL_TIME_MSG = pt.get<std::string>("messages.local_time");
-        REMOTE_TIME_MSG = pt.get<std::string>("messages.remote_time");
-
-        // set up windows program list
-		win_set_program_list();
-
-
-        run_tasks();
-
-        return 0;
-    }
-	*/
-    /* Use the default config file settings by reading from FILE */
-/*
-    boost::property_tree::ptree pt_default;
-
-#ifdef __linux__
+    std::cout << "attempting to open config file.." << std::endl;
     try
     {
-        boost::property_tree::ini_parser::read_ini("usr/sbin/monitoring/config/default.cfg", pt_default);
-    }catch(exception e){
-        std::cout << "Error with ini file: " << strerror(errno) << std::endl;
-    }
-#endif
+        // Load XML file into property tree.  If reading fails (for whatever reason) an exception is thrown so need to handle it
+#ifdef __linux__
+        read_xml("/opt/monitoring/config/default.cfg", pt);
+#endif // __linux__
 #ifdef _WIN32
-	boost::property_tree::ini_parser::read_ini("C:\\Tools\\Monitoring\\Config\\default.cfg", pt_default);
-#endif
+        read_xml("C:\\Tools\\Monitoring\\Config\\default.cfg")
+#endif // _WIN32
 
-    SERVER_ADDRESS = pt_default.get<std::string>("network.server");
-    LISTEN_PORT = pt_default.get<int>("network.listen_port");
-    SEND_PORT = pt_default.get<int>("network.send_port");
-    REMOTE = pt_default.get<bool>("umessage.remote");
-    EVENTSIZE = pt_default.get<int>("settings.event_size");
-    FREQUENCY = pt_default.get<int>("settings.frequency");
-    CALL_HOME = pt_default.get<int>("settings.call_home");
-    LOCAL_RESTRICTED_MSG = pt_default.get<std::string>("messages.local_restricted");
-    REMOTE_RESTRICTED_MSG = pt_default.get<std::string>("messages.remote_restricted");
-    LOCAL_TIME_MSG = pt_default.get<std::string>("messages.local_time");
-    REMOTE_TIME_MSG = pt_default.get<std::string>("messages.remote_time");
+        // Read in File paths
+        /** Possibly make this more robust later by adding in error checking / default settings.  Maybe based on where the program is compiled check child directories **/
+        EVENT_FILE = (char*)pt.get<std::string>("path.data").c_str();
+        ERR_LOG = (char*)pt.get<std::string>("path.log").c_str();
+        P_FILE = (char*)pt.get<std::string>("path.plist").c_str(); /** Critical!!! ...missing / not found means the application cannot run **/
+        CONFIG = (char*)pt.get<std::string>("path.config").c_str();
 
-	// Read script line from config file
-	std::string _s1 = pt_default.get<std::string>("script.script_names");
+        // Network setup
+        /** Critical section...if not set / found then application cannot run!! **/
+        SERVER_ADDRESS = pt.get<std::string>("network.server");/** CRITICAL!!!! **/
+        SEND_PORT = pt.get<int>("network.send_port", 16100);
+        LISTEN_PORT = pt.get<int>("network.listen_port", 16200);
 
-	std::vector<std::string> _v1 = parse_script2(_s1, ","); // splits names into each individual script
-	for(int i = 0; i < _v1.size(); ++i)
+        // Messages setup
+        /** Not a critical section persay... can use a very generic message default instead **/
+        RESTRICTED_MSG = pt.get("messages.restricted", "The user account you are attempting to log in with is not allowed access on this machine.");
+        EXPIRE_MSG = pt.get("messages.expire", "Your user accout will expire soon, and you will be logged out at that time.");
+        EXPIRED_MSG = pt.get("messages.expired", "Your user account has expired and you will now be logged out.");
+
+        // Read in a list of comma deliminated times representing how many minutes, before the expiration time, to display an expiration message to the user
+        //  and convert those into a vector of integers
+        std::vector<std::string> _v;
+        std::string _s = pt.get("messages.display_times", "15,5,1");
+        boost::algorithm::split(_v, _s, boost::algorithm::is_any_of(","), boost::algorithm::token_compress_on);
+        BOOST_FOREACH(std::string s, _v)
+        {
+            int _i = atoi(s.c_str());
+            MSG_DISPLAY_TIMES.push_back(_i);
+        }
+
+        // Settings setup
+        EVENTSIZE = pt.get<int>("settings.size", 32);
+        FREQUENCY = pt.get<int>("settings.frequency", 1); // Frequency to run the gathering portion, a multiple of 60 seconds
+        CALL_HOME = pt.get<int>("settings.call_home", 10); // How many minutes to wait with no server contact before attempting to call home
+
+        // Scripts setup
+        std::map<std::string, std::string[7]> SCRIPTS;
+        BOOST_FOREACH(ptree::value_type &v, pt.get_child("scripts"))
+        {
+            if(v.first == "script")
+            {
+                // Get the scripts command + path
+                std::string _cmd = v.second.get<std::string>("command");
+
+                std::string _times = v.second.get<std::string>("time", "notfound");
+                if(_times != "notfound")
+                {
+                    std::vector<std::string> _v1;
+                    std::string _weekdays[7] = {"2:00","2:00","2:00","2:00","2:00","2:00","2:00"};
+                    boost::algorithm::split(_v1, _times, boost::algorithm::is_any_of(","), boost::algorithm::token_compress_on);
+                    BOOST_FOREACH(std::string s, _v1)
+                    {
+                        std::vector<std::string> _v2;
+                        boost::algorithm::split(_v2, s, boost::algorithm::is_any_of(":"), boost::algorithm::token_compress_on);
+
+                        // Set the appropriate day in the weekday array to the time found (if any) for that day
+                        _weekdays[atoi(_v2.at(0).c_str())] = (_v2.at(1) + ":" + _v2.at(2));
+                    }
+
+                    SCRIPTS.insert(std::pair<std::string, std::string[7]>(_cmd, _weekdays) );
+                }
+            }
+        }
+	}
+	catch(std::exception &e)
 	{
-		std::string _s2 = "script.";
-		_s2.append(_v1.at(i));
-
-		std::string _s3 = pt_default.get<std::string>(_s2);
-		std::vector<std::string> _v2 = parse_script2(_s3, ",");
-
-		std::vector<std::string> _default_times;
-		for(int j = 0; j < 7; ++j){_default_times.push_back(_v2.at(1));}
-
-		// Take remaining special times and overwrite the default time for that weekday (day 1 being Monday)
-		for(int x = 2; x < _v2.size(); ++x)
-		{
-			std::vector<std::string> _temp = parse_script2(_v2.at(x), ":");
-			int _day = atoi(_temp.at(0).c_str());
-			std::string _s4 = _temp.at(1);
-			_s4.append(":");
-			_s4.append(_temp.at(2));
-
-			_default_times.at(_day) = _s4;
-		}
-		SCRIPTS.insert(std::pair<std::string, std::vector<std::string> >(_v2.at(0),_default_times));
+        std::cout << "Exception caught: " << e.what() << " with -- " << errno << std::endl;
+        /*** Logging TODO ***/
+        /** because certain config settings are required for this program to execute we cannot safely use default settings and continue execution **/
 	}
 
-	/// Allowed login accounts
-	BLOCKED_REGEX = pt_default.get<std::string>("blocked.name_regex");
-
-	//check_allowed_accounts(BLOCKED_REGEX);
-*/
 	// Sync up with the local machines time and wait for a new minute to roll around so that data is gathered on the minute
 	struct tm *tm_struct;
 	time_t t = time(NULL);
