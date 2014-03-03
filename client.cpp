@@ -568,7 +568,7 @@ void create_directories()
 #ifdef _WIN32
 	CreateDirectory("C:\\Tools\\Monitoring\\data", NULL);
 	CreateDirectory("C:\\Tools\\Monitoring\\log", NULL);
-	CreateDirectory("C:\\Tools\\Monitoring\\Config", NULL);
+	CreateDirectory("C:\\Tools\\Monitoring\\config", NULL);
 #endif
 }
 
@@ -2074,8 +2074,10 @@ std::vector<T> to_array(const std::string& s)
 	return result;
 }
 
-/*** TODO!! -- need to add in exception checking to handle when config items are not found or mistyped in the file, and deal with the appropriate bad information later in execution ****/
-
+/*
+    Main - Create the applications directory structure. Read in the Config file settings that are required for execution, if any errors occur log them and exit.
+        Wait for a new minute to come around in case the application was started after second 0, and then begin running tasks.
+*/
 int main(int ac, char **av)
 {
     /* Set last server communication to be now-time */
@@ -2101,7 +2103,13 @@ int main(int ac, char **av)
         /** Possibly make this more robust later by adding in error checking / default settings.  Maybe based on where the program is compiled check child directories **/
         EVENT_FILE = (char*)pt.get<std::string>("path.data").c_str();
         ERR_LOG = (char*)pt.get<std::string>("path.log").c_str();
-        P_FILE = (char*)pt.get<std::string>("path.plist").c_str(); /** Critical!!! ...missing / not found means the application cannot run **/
+#ifdef __linux__
+        P_FILE = (char*)pt.get<std::string>("path.plist", "/opt/monitoring/config/masterlist.txt").c_str(); /** Critical!!! ...missing / not found means the application cannot run **/
+        std::cout << P_FILE << std::endl;
+#endif // __linux__
+#ifdef _WIN32
+        P_FILE = (char*)pt.get<std::string>("path.plist", "C:\\Tools\\Monitoring\\config\\masterlist.txt").c_str();
+#endif // _WIN32
         CONFIG = (char*)pt.get<std::string>("path.config").c_str();
 
         // Network setup
@@ -2128,7 +2136,7 @@ int main(int ac, char **av)
         }
 
         // Settings setup
-        EVENTSIZE = pt.get<int>("settings.size", 32);
+        EVENTSIZE = pt.get<int>("settings.size", 32); // The size of an EVENT block (32 bits in this case, means 32 programs per block, 64 would be 64 programs, etc)
         FREQUENCY = pt.get<int>("settings.frequency", 1); // Frequency to run the gathering portion, a multiple of 60 seconds
         CALL_HOME = pt.get<int>("settings.call_home", 10); // How many minutes to wait with no server contact before attempting to call home
 
@@ -2163,9 +2171,17 @@ int main(int ac, char **av)
 	}
 	catch(std::exception &e)
 	{
-        std::cout << "Exception caught: " << e.what() << " with -- " << errno << std::endl;
-        /*** Logging TODO ***/
-        /** because certain config settings are required for this program to execute we cannot safely use default settings and continue execution **/
+        time_t tt = time(NULL);
+		struct tm tm;
+		char buf[32];
+		tm = *localtime(&tt);
+		strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+		std::ofstream fLog (ERR_LOG, std::ios::app);
+		if(fLog.is_open())
+		{
+            fLog << "Configuration File Exception caught: " << e.what() << " -- " << buf << "\n";
+        }
+		fLog.close();
 	}
 
 	// Sync up with the local machines time and wait for a new minute to roll around so that data is gathered on the minute
