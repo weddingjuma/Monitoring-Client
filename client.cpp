@@ -2145,7 +2145,7 @@ int main(int ac, char **av)
                 if(_times != "notfound")
                 {
                     std::vector<std::string> _v1;
-                    std::string _weekdays[7] = {"2:00","2:00","2:00","2:00","2:00","2:00","2:00"};
+                    std::string _weekdays[7] = {"null","null","null","null","null","null","null"};
                     boost::algorithm::split(_v1, _times, boost::algorithm::is_any_of(","), boost::algorithm::token_compress_on);
                     BOOST_FOREACH(std::string s, _v1)
                     {
