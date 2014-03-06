@@ -41,11 +41,13 @@ int main()
             run-level it is a given that the FIFO will already be open when this program is executed at startup.  O_NONBLOCK will not be set
             because we want read() to block.
         */
-        read(fd, buf, MAX_BUF); // 0 == success, errno == error
+        int r = read(fd, buf, MAX_BUF); // 0 == success, errno == error
         buf[sizeof(buf)/sizeof(buf[0])] = '\0';
-        printf("Received: %s\n", buf);
 
-        tret = pthread_create(&threadID, NULL, display_msg, (void*)buf);
+        if(r == 0)
+        {
+            tret = pthread_create(&threadID, NULL, display_msg, (void*)buf);
+        }
         //display_msg(buf);
 
         sleep(10); /**TEMPORARY until ready to implement, as having the Client running will force read() to block and prevent the need for this**/
