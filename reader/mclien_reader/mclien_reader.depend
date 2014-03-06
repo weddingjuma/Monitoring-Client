@@ -1,0 +1,21 @@
+# depslib dependency file v1.0
+1394063987 source:/home/seth/WORK/Monitoring-Client/reader/mclien_reader/linux.cpp
+	"linux.h"
+
+1394063951 /home/seth/WORK/Monitoring-Client/reader/mclien_reader/linux.h
+
+1394063493 source:/home/seth/WORK/Monitoring-Client/reader/mclien_reader/main.cpp
+	<fcntl.h>
+	<stdio.h>
+	<sys/stat.h>
+	<unistd.h>
+	<errno.h>
+	<string>
+	<vector>
+	<algorithm>
+
+1394063999 source:/home/seth/WORK/Monitoring-Client/reader/mclien_reader/windows.cpp
+	"windows.h"
+
+1394063945 /home/seth/WORK/Monitoring-Client/reader/mclien_reader/windows.h
+
