@@ -9,36 +9,59 @@ int is_valid_fd(int fd)
     return fcntl(fd, F_GETFL) != -1 || errno != EBADF;
 }
 
-void display_msg(char *msg)
+/*
+    Entry point pthread that will display a message to the user if they're logged into a graphical desktop.  It first checks to see if they're running
+    KDE and uses kdialog.  Otherwise it defaults to X native message system xmessage.
+*/
+void *display_msg(void *msg)
 {
-#ifdef __linux__
+    char *message = (char*)msg;
+    char x[200];
+    vector<string> olines;
+	FILE *f;
+    f = popen("pidof ksmserver", "r");
+	while(fgets(x, 200, f) != NULL)
+    {
+        olines.push_back(x);
+    }
 
-#endif
+    if(olines.size() > 0)
+    {
+        // kdialog
+        string cmd = "kdialog --title \"Account Expiration Warning\" --warningcontinuecancel ";
+        cmd += message;
+        system(cmd.c_str());
+    }
+    else
+    {
+        // xmessage
+        string cmd = "xmessage -title \"Account Expiration Warning\" -buttons ok -center ";
+        cmd += message;
+        system(cmd.c_str());
+    }
 }
 
+/*
+    Checks to make sure the machine is logged in.  Because this program belongs in Autostart, this part shouldn't be needed, but just in case
+    this will ensure that the program exits when the user logs out and doesn't stay running.
+*/
 bool is_logged_in()
 {
     char x[200];
     vector<string> olines;
-	int localCount = 0;
-
 	FILE *f;
-#ifdef __linux__
     f = popen("who", "r");
-#endif
+
 	while(fgets(x, 200, f) != NULL)
     {
         if(string(x).find("(:0)") != string::npos)
         {
-#ifdef __linux__
             pclose(f);
-#endif
             return true;
         }
     }
-#ifdef __linux__
+
     pclose(f);
-#endif
     return false;
 }
 

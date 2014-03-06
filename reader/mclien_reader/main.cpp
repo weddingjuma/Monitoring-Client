@@ -1,10 +1,11 @@
 #ifdef __linux__
 #include "linux.h"
-#elif _WIN32
-#include "windows.h"
-#else
-#error "unknown platform"
 #endif
+#ifdef _WIN32
+#include "windows.h"
+#endif
+
+#include <pthread.h>
 
 #define MAX_BUF 1024
 
@@ -12,7 +13,8 @@ using namespace std;
 
 int main()
 {
-    int fd;
+    int fd, tret;
+    pthread_t threadID;
     bool LOGGED_IN = true;
     char * myfifo = (char*)"/tmp/mclientfifo";
     char buf[MAX_BUF];
@@ -40,9 +42,13 @@ int main()
             because we want read() to block.
         */
         read(fd, buf, MAX_BUF); // 0 == success, errno == error
+        buf[sizeof(buf)/sizeof(buf[0])] = '\0';
         printf("Received: %s\n", buf);
 
-        sleep(1); /**TEMPORARY until ready to implement, as having the Client running will force read() to block and prevent the need for this**/
+        tret = pthread_create(&threadID, NULL, display_msg, (void*)buf);
+        //display_msg(buf);
+
+        sleep(10); /**TEMPORARY until ready to implement, as having the Client running will force read() to block and prevent the need for this**/
     }
     close(fd); // 0 == success
 
