@@ -31,6 +31,7 @@
 
 #ifdef __linux__
 #include <unistd.h>
+#include <fcntl.h>
 #endif
 #ifdef _WIN32
 #include <Windows.h>
@@ -223,7 +224,156 @@ void display_msgbox()
 
 void display_linux_msgbox()
 {
+#ifdef __linux__
     /// TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    bool fifteen = false, five = false, one = false, expired = false;
+
+	while(true)
+	{
+		if(currentUsers.size() > 0)
+		{
+			//boost::regex gx("^gx", boost::regex::perl|boost::regex::icase);
+			boost::regex gp("^gp", boost::regex::perl|boost::regex::icase);
+
+			boost::match_results<std::string::const_iterator> results;
+
+			cu_mutex.lock();
+			const std::string user = get_current_local_user();
+			cu_mutex.unlock();
+			std::string::const_iterator start = user.begin();
+			std::string::const_iterator end = user.end();
+			if(user.compare("") != 0)
+			{
+				if(boost::regex_search( start, end, results, gp))
+				{
+					// GP matched -- attempt insert into map<> with current timestamp, if already exists it will skip
+					std::pair<std::map<std::string, time_t>::iterator, bool> ret;
+					ret = GUEST_EXPIRATION.insert(std::pair<std::string, time_t>(user, time(NULL)));
+
+//std::cout << "Searching..." << std::endl;
+
+					if(ret.second == false)
+					{
+						time_t t = GUEST_EXPIRATION[user];
+						// Current account already exists, so check to see if expired
+						time_t current = time(NULL);
+
+//std::cout << "Current account already exists " << GUEST_EXPIRATION.at("admin") << std::endl;
+
+						/*
+						int msg_fifteen = ((2 * (60 * 60))-900);
+						int msg_five = ((2 * (60 * 60))-300);
+						int	 msg_one = ((2 * (60 * 60))-60);
+						int msg_expired = ((2 * (60 * 60)));
+						*/
+						int msg_fifteen = 60;
+						int msg_five = ((2 * (60 * 60))-300);
+						int	 msg_one = ((2 * (60 * 60))-60);
+						int msg_expired = ((2 * (60 * 60)));
+
+						if(!fifteen && ( ((t + msg_five) >= current) && (current >= (t + msg_fifteen)) ) )
+						{
+//std::cout << "Attempting to send 15 min message..." << current << " t: " << t << std::endl;
+							fifteen = true;
+							int fd;
+							char *pipe = (char*)"/tmp/fifo";
+							fd = open(pipe, O_WRONLY);
+                            struct tm *_t;
+                            time_t long_t = time(NULL) + (60*15);
+                            _t = localtime(&long_t);
+                            char _buf[16];
+                            if(_t->tm_hour > 12)
+                                sprintf(_buf,"%d:%d %s",_t->tm_hour-12,_t->tm_min, "PM");
+                            else
+                                sprintf(_buf,"%d:%d %s",_t->tm_hour,_t->tm_min, "AM");
+                            std::string blah = string(_buf);
+                            std::string m = EXPIRE_MSG;
+                            m.append(blah);
+                            size_t r = write(fd, m.c_str(), m.length());
+                            close(fd);
+						}
+						else if( (fifteen && !five) && ( ((t + msg_one) >= current) && (current >= (t + msg_five)) ) )
+						{
+							five = true;
+							int fd;
+							char *pipe = (char*)"/tmp/fifo";
+							fd = open(pipe, O_WRONLY);
+                            struct tm *_t;
+                            time_t long_t = time(NULL) + (60*5);
+                            _t = localtime(&long_t);
+                            char _buf[16];
+                            if(_t->tm_hour > 12)
+                                sprintf(_buf,"%d:%d %s",_t->tm_hour-12,_t->tm_min, "PM");
+                            else
+                                sprintf(_buf,"%d:%d %s",_t->tm_hour,_t->tm_min, "AM");
+                            std::string m = EXPIRE_MSG;
+                            m.append(_buf);
+                            size_t r = write(fd, m.c_str(), m.length());
+                            close(fd);
+						}
+						else if( (fifteen && five && !one) && ( ((t + msg_expired) >= current) && (current >= (t + msg_one)) ) )
+						{
+							one = true;
+							int fd;
+							char *pipe = (char*)"/tmp/fifo";
+							fd = open(pipe, O_WRONLY);
+                            struct tm *_t;
+                            time_t long_t = time(NULL) + (60*1);
+                            _t = localtime(&long_t);
+                            char _buf[16];
+                            if(_t->tm_hour > 12)
+                                sprintf(_buf,"%d:%d %s",_t->tm_hour-12,_t->tm_min, "PM");
+                            else
+                                sprintf(_buf,"%d:%d %s",_t->tm_hour,_t->tm_min, "AM");
+                            std::string m = EXPIRE_MSG;
+                            m.append(_buf);
+                            size_t r = write(fd, m.c_str(), m.length());
+                            close(fd);
+						}
+						else if( (fifteen && five && one && !expired) && ( current >= (t + msg_expired) ) )
+						{
+							expired = true;
+							int fd;
+							char *pipe = (char*)"/tmp/fifo";
+							fd = mkfifo(pipe, 0666);
+							std::string m = EXPIRED_MSG;
+							write(fd, m.c_str(), sizeof(m.c_str()));
+							close(fd);
+
+							/// Wait 60 seconds and then kill all user applications and log them off
+							/*
+
+							*/
+							linux_logoff_user(user);
+
+							fifteen = false;
+							five = false;
+							one = false;
+							expired = false;
+						}
+					}
+					else
+					{
+//std::cout << "Current account does NOT exist " << GUEST_EXPIRATION.size() << std::endl;
+                    }
+				}
+				else
+				{
+                    // Not a Guest Account so nothing to do here..
+				}
+			}
+		}
+		else
+		{
+			fifteen = false;
+			five = false;
+			one = false;
+			expired = false;
+			mSleep(1);
+		}
+		mSleep(60); // sleep 1 second
+	}
+#endif // __linux__
 }
 
 void display_windows_msgbox()
@@ -595,29 +745,18 @@ void gather_data()
 		/* Get logged in status */
 		if(logged_in())
 		{
-std::cout << "LOGGED IN" << std::endl;
+//std::cout << "LOGGED IN" << std::endl;
 			check_allowed_accounts(BLOCKED_REGEX);
 
 			LOGGED_IN = true;
 
-			//kick_expired_accounts();
-
 			int pcount = prog_number();
-			//if(pcount == 0)
-            //{
-            //    set_program_list();
-            //    pcount = prog_number();
-            //}
-std::cout << "pcount " << EVENTSIZE << std::endl;
 			int block = 0;
 			if(pcount % EVENTSIZE != 0)
 				block = (pcount / EVENTSIZE) + 1;
 			else
 				block = (pcount / EVENTSIZE);
 
-std::cout << "pcount - " << prog_number() << std::endl;
-std::cout << "block - " << block << std::endl;
-			//unsigned int blocks[block];
 			unsigned int *blocks = new unsigned int[block]; /* Windows mod */
 			unsigned int *r_blocks = new unsigned int[block]; /* Windows mod */
 			for(int i = 0; i < block; ++i)
@@ -739,8 +878,8 @@ std::cout << "block - " << block << std::endl;
 
 void check_allowed_accounts(std::string br)
 {
-#ifdef _WIN32
-	if(br.compare("") == 0)
+/** Check all logged in accounts to see if any are restricted, and if found, kick them **/
+	if(br.compare("null") == 0)
 		return;
 	std::vector<std::string> _regexs;
 	boost::split(_regexs, br, boost::is_any_of(","));
@@ -754,8 +893,13 @@ void check_allowed_accounts(std::string br)
 	{
 		boost::regex _r(_regexs.at(i), boost::regex::perl|boost::regex::icase);
 
+        // If a match is found in the BLOCKED accounts config setting with a currently logged in user, send them a message and kick them
 		if(boost::regex_search(start, end, results, _r))
 		{
+#ifdef __linux__
+        /** Blocked accounts on Linux is handled through PAM so no need to deal with it here, although can be added later if that functionality is needed **/
+#endif // __linux__
+#ifdef _WIN32
 			HANDLE pipe = CreateNamedPipe(
 								"\\\\.\\pipe\\lm_pipe", // name of pipe
 								PIPE_ACCESS_OUTBOUND, // one way pipe -- outbound only
@@ -793,11 +937,11 @@ void check_allowed_accounts(std::string br)
 
 								CloseHandle(pipe);
 							}
+#endif // _WIN32
 			mSleep(5000);
 			kick_expired_accounts();
 		}
 	}
-#endif
 }
 
 /** Testing async_accpet **/
@@ -821,7 +965,7 @@ void linux_listen_thread()
         struct tm tm;
         char buf[32];
         tm = *localtime(&tt);
-        std::cout << "Starting listen at minute: " << tm.tm_min << ":" << tm.tm_sec << std::endl;
+        //std::cout << "Starting listen at minute: " << tm.tm_min << ":" << tm.tm_sec << std::endl;
 
         /* Set the running flag so the application knows this thread is active and we don't need to join it for testing */
         L_RUNNING = true;
@@ -870,7 +1014,7 @@ void linux_listen_thread()
 						struct tm tm;
 						char buf[32];
 						tm = *localtime(&tt);
-						std::cout << "Got: " << tmp.data() << " at minute: " << tm.tm_min << std::endl;
+						//std::cout << "Got: " << tmp.data() << " at minute: " << tm.tm_min << std::endl;
 
 						// Read all EVENTs in from file
 						size_t len = 0;
@@ -892,7 +1036,7 @@ void linux_listen_thread()
 						while(wfp.good())
 						{
 							getline(wfp,wline);
-							std::cout << "File line length: " << wline.length() << std::endl;
+							//std::cout << "File line length: " << wline.length() << std::endl;
 							if(wline.length() > 0)
 							{
                                 EVENTS.push_back(wline);
@@ -915,6 +1059,7 @@ void linux_listen_thread()
 						if(EVENTS.empty())
 						{
                             line = get_current_event();
+std::cout << "No EVENTS in vector, sending current event: " << line << std::endl;
                             const char* end = line.c_str() + strlen(line.c_str());
                             event.insert(event.end(), line.c_str(), end);
                             size_t sent = boost::asio::write(socket, boost::asio::buffer(event), boost::asio::transfer_all(), error);
@@ -925,7 +1070,7 @@ void linux_listen_thread()
 						while(!EVENTS.empty())
 						{
 							line = EVENTS.back();
-							std::cout << "LINE: " << line << " " << time(NULL) << std::endl;
+			//				std::cout << "LINE: " << line << " " << time(NULL) << std::endl;
                             EVENTS.pop_back();
                             const char* end = line.c_str() + strlen(line.c_str());
                             event.insert(event.end(), line.c_str(), end);
@@ -1017,7 +1162,7 @@ void linux_listen_thread()
             fLog.close();
         }
 
-		std::cout << "AFTER SEND CYCLE: " << EVENTS.size() << std::endl;
+		//std::cout << "AFTER SEND CYCLE: " << EVENTS.size() << std::endl;
     }
 }
 
@@ -1654,14 +1799,14 @@ void send_remote_restricted_message(std::string pts)
 void send_remote_time_message(std::string pts)
 {
 /** TODO!!!!!!!!!!!!!!!!!!!! **/
-/*
+
     FILE *f;
     size_t pos = pts.find("/");
     if(pos != std::string::npos)
     {
         std::string s = pts.substr(pts.find("/")+1);
         std::string cmd = "echo ";
-        cmd += REMOTE_TIME_MSG;
+        cmd += RESTRICTED_MSG;
         cmd += " > /dev/pts/";
         cmd += s;
         cmd += " << EOF";
@@ -1690,7 +1835,6 @@ void send_remote_time_message(std::string pts)
         }
         fLog.close();
     }
-    */
 }
 
 /**
@@ -1851,7 +1995,7 @@ bool linux_logged_in()
                     if(splits[5].compare("(:0)") != 0)
                     {
                         // Remote session
-                        std::cout << "Adding remote: " << name << " - " << splits[5].substr(1,splits[5].length()-2) << std::endl;
+                        //std::cout << "Adding remote: " << name << " - " << splits[5].substr(1,splits[5].length()-2) << std::endl;
                         user u;
                         u.name = name;
                         u.terminal = splits[5].substr(1,splits[5].length()-2);
@@ -2009,7 +2153,7 @@ void call_home_task() /** FINISHED AND TESTED **/
 				LAST_SERVER_COMMUNICATION = time(NULL);
 
 				/* Write file */
-std::cout << "CALLED HOME -- attempting to write file" << std::endl;
+//std::cout << "CALLED HOME -- attempting to write file" << std::endl;
 				write_program_file(output);
 			}
 			catch(std::exception &e)
@@ -2059,7 +2203,8 @@ void run_tasks()
 			/* Run the thread pools */
 			home.schedule(&call_home_task);
 			gather.schedule(&gather_data);
-			mbox.schedule(&display_windows_msgbox);
+			//mbox.schedule(&display_windows_msgbox);
+			mbox.schedule(&display_msgbox);
 		}
     }
 }
@@ -2105,7 +2250,7 @@ int main(int ac, char **av)
         ERR_LOG = (char*)pt.get<std::string>("path.log").c_str();
 #ifdef __linux__
         P_FILE = (char*)pt.get<std::string>("path.plist", "/opt/monitoring/config/masterlist.txt").c_str(); /** Critical!!! ...missing / not found means the application cannot run **/
-        std::cout << P_FILE << std::endl;
+        //std::cout << P_FILE << std::endl;
 #endif // __linux__
 #ifdef _WIN32
         P_FILE = (char*)pt.get<std::string>("path.plist", "C:\\Tools\\Monitoring\\config\\masterlist.txt").c_str();
@@ -2123,6 +2268,7 @@ int main(int ac, char **av)
         RESTRICTED_MSG = pt.get("messages.restricted", "The user account you are attempting to log in with is not allowed access on this machine.");
         EXPIRE_MSG = pt.get("messages.expire", "Your user accout will expire soon, and you will be logged out at that time.");
         EXPIRED_MSG = pt.get("messages.expired", "Your user account has expired and you will now be logged out.");
+        BLOCKED_REGEX = pt.get("messages.blocked", "null");
 
         // Read in a list of comma deliminated times representing how many minutes, before the expiration time, to display an expiration message to the user
         //  and convert those into a vector of integers
@@ -2141,7 +2287,7 @@ int main(int ac, char **av)
         CALL_HOME = pt.get<int>("settings.call_home", 10); // How many minutes to wait with no server contact before attempting to call home
 
         // Scripts setup
-        std::map<std::string, std::string[7]> SCRIPTS;
+        std::map<std::string, std::vector<std::string> > SCRIPTS;
         BOOST_FOREACH(ptree::value_type &v, pt.get_child("scripts"))
         {
             if(v.first == "script")
@@ -2153,7 +2299,8 @@ int main(int ac, char **av)
                 if(_times != "notfound")
                 {
                     std::vector<std::string> _v1;
-                    std::string _weekdays[7] = {"null","null","null","null","null","null","null"};
+                    //std::string _weekdays[7] = {"null","null","null","null","null","null","null"};
+                    std::vector<std::string> _weekdays;// = {"null","null","null","null","null","null","null"};
                     boost::algorithm::split(_v1, _times, boost::algorithm::is_any_of(","), boost::algorithm::token_compress_on);
                     BOOST_FOREACH(std::string s, _v1)
                     {
@@ -2161,10 +2308,10 @@ int main(int ac, char **av)
                         boost::algorithm::split(_v2, s, boost::algorithm::is_any_of(":"), boost::algorithm::token_compress_on);
 
                         // Set the appropriate day in the weekday array to the time found (if any) for that day
-                        _weekdays[atoi(_v2.at(0).c_str())] = (_v2.at(1) + ":" + _v2.at(2));
+                        _weekdays.at(atoi(_v2.at(0).c_str())) = (_v2.at(1) + ":" + _v2.at(2));
                     }
 
-                    SCRIPTS.insert(std::pair<std::string, std::string[7]>(_cmd, _weekdays) );
+                    SCRIPTS.insert(std::pair<std::string, std::vector<std::string> >(_cmd, _weekdays) );
                 }
             }
         }
@@ -2197,6 +2344,12 @@ int main(int ac, char **av)
 		min = tm_struct->tm_sec;
 	}
 
+#ifdef __linux__
+    //system("su admin -c \"kdialog --sorry \"Test message\"\"");
+    //system("dialog --title 'Message' --msgbox \"Hello World\" 5 20");
+    //system("xmessage \"Hello World!\"");
+    //system("sh /admin/Client/restricted.sh");
+#endif // __linux__
     run_tasks();
 
     return 0;
