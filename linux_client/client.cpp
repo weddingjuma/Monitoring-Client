@@ -301,7 +301,7 @@ void display_linux_msgbox()
 	{
 		if(currentUsers.size() > 0)
 		{
-			boost::regex gx("^gx", boost::regex::perl|boost::regex::icase);
+			boost::regex gp("^gp", boost::regex::perl|boost::regex::icase);
             boost::match_results<std::string::const_iterator> results;
 
 			cu_mutex.lock();
