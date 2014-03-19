@@ -354,7 +354,7 @@ void display_linux_msgbox()
 						{
 							five = true;
 							int fd;
-							char *pipe = (char*)"/tmp/mclientfifo";
+							char *pipe = (char*)"/tmp/fifo";
 							fd = mkfifo(pipe, 0666);
                             struct tm *_t;
 							time_t long_t = time(NULL) + (60*5);
@@ -370,7 +370,7 @@ void display_linux_msgbox()
 						{
 							one = true;
 							int fd;
-							char *pipe = (char*)"/tmp/mclientfifo";
+							char *pipe = (char*)"/tmp/fifo";
 							fd = mkfifo(pipe, 0666);
                             struct tm *_t;
 							time_t long_t = time(NULL) + (60*1);
@@ -386,7 +386,7 @@ void display_linux_msgbox()
 						{
 							expired = true;
 							int fd;
-							char *pipe = (char*)"/tmp/mclientfifo";
+							char *pipe = (char*)"/tmp/fifo";
 							fd = mkfifo(pipe, 0666);
 							std::string m = EXPIRED_MSG;
 							write(fd, m.c_str(), sizeof(m.c_str()));
