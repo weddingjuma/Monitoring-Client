@@ -12,6 +12,7 @@ successfully compile this program:
 -mysqlpp
 -boost_system
 -boost_regex
+-boost_threadpool
 
 Copyright (C) 2013 Seth Walsh seth.walsh@utah.edu
 ******************************************************************/
