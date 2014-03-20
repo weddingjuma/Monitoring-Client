@@ -60,6 +60,7 @@ DEALINGS IN THE SOFTWARE.
 #include <algorithm>
 #include <fstream>
 
+/** Boost headers **/
 #include <boost/threadpool.hpp>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
@@ -68,9 +69,14 @@ DEALINGS IN THE SOFTWARE.
 #include <boost/regex.hpp>
 #include <boost/algorithm/string.hpp>
 
-/* MySQL headers */
+/** MySQL headers **/
 #include <mysql++/mysql++.h>
 
+/**
+    Struct representing a single EVENT block.  Each client machine can produce multiple EVENT blocks per minute but only a single EVENT per minute.  An EVENT contains the machine
+    name that produced it, the epoch timestamp for that minute it was produced (on the clients time), the user name associated with that EVENT, the offset (which block it is), the data
+    string in HEX of 32 bits where each bit is a program being monitored, and guest type if the user is a guest account.
+**/
 struct EVENT{
     std::string machine; // machine event came from
     unsigned long int timestamp; // timestamp for the event
@@ -80,34 +86,31 @@ struct EVENT{
     unsigned int guest_type; // unsigned integer representing guest account type 0 == user, 1 == gx, 2 == gp
 };
 
-static bool IS_RUNNING = false;
-static int LISTEN_PORT = 16100;
-static int SEND_PORT = 16200;
-static char *DB = (char *)"LMServer3";
-static char *DB_SERVER = (char *)"155.97.17.169";
-static char *DB_USR = (char *)"lmon";
-static char *DB_PSWD = (char *)"lm0nit0ring";
+/** Member variables **/
+static bool IS_RUNNING = false; // Flag if Server is currently gathering
+static int LISTEN_PORT = 16100; // Port to listen for Client communications comming in on
+static int SEND_PORT = 16200; // Port to send communications to the Clients on
+static char *DB = (char *)"LMServer3"; // Database name
+static char *DB_SERVER = (char *)"155.97.17.169"; // Database Server IP
+static char *DB_USR = (char *)"lmon"; // Database user
+static char *DB_PSWD = (char *)"lm0nit0ring"; // Database pass
 //static char *MASTERLIST = (char*)"masterlist.txt";
-static int MSTATUS_TIMER = 30;
-
+static int MSTATUS_TIMER = 30; //
 static FILE *efp;
-static char *ERRLOG = (char*)"error.log";
-
-std::vector<std::string> MACHINE_LIST;
-std::map<std::string, std::string> MAP_MNAME_IP;
+static char *ERRLOG = (char*)"error.log"; // Error log file
+std::vector<std::string> MACHINE_LIST; // Machine name list
+std::map<std::string, std::string> MAP_MNAME_IP; // Map machine dns names to IP addresses
 std::map<std::string, int> MAP_MNAME_STATUS; // 3 == offline, 1 == logged in, 2 == logged out
 std::map<std::string, int> BLACKLIST; // 1 == timeout, 2 == refused connection, 0 == communication working
-std::vector<EVENT> EVENTS_TO_UPLOAD;
+std::vector<EVENT> EVENTS_TO_UPLOAD; // EVENTs collected in the last gather cycle to be uploaded to the DB
 boost::mutex event_mutex;  // EVENTS vector is not guaranteed to be thread-safe
 boost::mutex mlremove_mutex; // BLACK_LIST vector is not guaranteed to be thread-safe
 std::set<std::string> BLACK_LIST; // Holds a list of unique machines that are blacklisted -- non responsive, calling home too often, etc
-std::map<int, std::string> windows_list;
-std::map<int, std::string> linux_list;
-
+std::map<int, std::string> windows_list; // Map bit position to process name for Windows
+std::map<int, std::string> linux_list; // Map bit position to process name for Linux
 typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
 
-int TEMPCOUNTER = 0; /// DEBUGGING !!!!
-
+/** Namespaces **/
 using namespace std;
 using namespace boost::threadpool;
 
@@ -251,10 +254,7 @@ void parse_event_block(char *data, string machine)
                 e.machine = machine;
                 e.user = user;
                 e.timestamp = l;
-//std::cout << "Machine2: " << e.machine << std::endl;
-//std::cout << "user: " << e.user << std::endl;
-//std::cout << "timestamp: " << e.timestamp << std::endl;
-//std::cout << "data: " << e.data << std::endl;
+
                 // Check timestamp, if its within last 60 seconds we can consider the machine logged in
                 if((l > (unsigned long)(time(NULL) - 60)) && (data[0] == '2'))
                 {
@@ -304,6 +304,7 @@ void parse_event_block(char *data, string machine)
     Insert a given machine into the machines table in the database
 
     @param machine  The machine to insert
+    @ret   bool     True / False if machine insert was successful
 **/
 bool db_machine_insert(string machine)
 {
@@ -319,7 +320,7 @@ bool db_machine_insert(string machine)
             mysqlpp::StoreQueryResult res = query.store();
             if(res.num_rows() == 0)
             {
-                query << "INSERT INTO machine(machine_name,machine_a_id,machine_status,last_communication) VALUES(\"" << machine << "\",1," << MAP_MNAME_STATUS[machine] << ",unix_timestamp())";
+                query << "INSERT INTO machine(machine_name,machine_a_id,machine_status,last_communication) VALUES(\"" << machine << "\",7," << MAP_MNAME_STATUS[machine] << ",unix_timestamp())";
                 if(query.exec())
                 {
                     conn.disconnect();
@@ -351,12 +352,13 @@ bool db_machine_insert(string machine)
             return false;
         }
     }
-    std::cout << "Connection failure1 " << conn.error() << std::endl;
     return false;
 }
 
 /**
-    Update the status for all machines being monitored
+    Update the status for all machines being monitored.  All machines are initially set to offline at the start of each minute.
+
+    @ret    bool    True / False if update of machines status was successful
 **/
 bool update_all_machine_status()
 {
@@ -371,7 +373,6 @@ bool update_all_machine_status()
             mysqlpp::Query query = conn.query();
             query << "UPDATE machine SET machine_status=3";
             query.exec();
-std::cout << "Setting all machine status's to offline" << std::endl;
             conn.disconnect();
             return true;
         }
@@ -396,18 +397,27 @@ std::cout << "Setting all machine status's to offline" << std::endl;
     }
     else
     {
-        std::cout << "Connection failure3" << std::endl;
         return false;
     }
 }
 
+
+/**
+    This threaded function serves as the main gathering point.  For each machine this function will attempt to contact that client by sending the appropriate flag message and collect
+    any EVENTs the client has stored up.  Once collected they are sent to the EVENT parsing function which will deal with splitting the EVENT up into its various parts and parsing the
+    data block.  This function also handles setting the client machines status (offline, logged out, logged in).  Because this function is threaded, handles only one client, and EVENT
+    is timestamped it does not matter how long this function takes to return.
+
+    @param string Machine name
+**/
 void handle_gather(string machine)
 {
-std::string tempIP;
+    // If the machine is on the blacklist for example spamming the call home function the Server will not attempt to contact it (IE: if some rogue program attempts to abuse the Servers listen port)
     if(BLACKLIST[machine] > 0)
         return;
     try
     {
+        // Create a Boost socket and attempt to connect to the client
         boost::asio::io_service io_service;
         boost::asio::ip::tcp::resolver resolver(io_service);
         stringstream ss;
@@ -415,26 +425,26 @@ std::string tempIP;
         string buf = ss.str();
         std::map<std::string, std::string>::iterator it;
         it = MAP_MNAME_IP.find(machine);
-tempIP = it->second;
         boost::asio::ip::tcp::resolver::query query(it->second, buf);
         boost::asio::ip::tcp::resolver::iterator itr = resolver.resolve(query);
         boost::asio::ip::tcp::socket socket(io_service);
 
-        //boost::asio::socket_base::linger option(false, 0); /* testing FD fix */
-        //socket.native_handle().set_option(option);
+        // Set the timeout to 30 seconds
         struct timeval tv;
         tv.tv_sec  = 30;
         tv.tv_usec = 0;
         setsockopt(socket.native(), SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
         setsockopt(socket.native(), SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 
+        // Connect the socket
         boost::asio::connect(socket, itr);
 
         char message[2];
         message[0] = '2';
         message[1] = '\0';
         size_t rlen = strlen(message);
-//std::cout << "Sending 2 to: " << machine << " on: " << socket.native_handle() << std::endl;
+
+        // Send the data request message
         boost::asio::write(socket, boost::asio::buffer(message, rlen));
         boost::asio::streambuf sbuf;
         size_t response_length = 1;
@@ -447,10 +457,8 @@ tempIP = it->second;
 
             if(response_length > 0)
             {
-//std::cout << "RESPONSE ---- " << response << std::endl;
-if(machine.compare("PTECH-02-7TEST")==0){std::cout << response << std::endl;}
                 response[response_length] = '\0'; // MAY NOT NEED!!!!
-r_buffer += response; /** TESTING NEW STRING METHOD OF DOING THIS SO EVENTS DONT GET TRUNCATED **/
+                r_buffer += response; /** TESTING NEW STRING METHOD OF DOING THIS SO EVENTS DONT GET TRUNCATED **/
                 if(response[0] == '8')
                 {
                     // Machine is logged out == 2
@@ -479,57 +487,45 @@ r_buffer += response; /** TESTING NEW STRING METHOD OF DOING THIS SO EVENTS DONT
                         {
                             MAP_MNAME_STATUS.insert(std::pair<std::string, int>(machine, 1));
                         }
-
-                        //parse_event_block(response, machine);
                     }
                 }
             }
-            //update_mstatus(machine);
         }
-std::cout << "FULL STRING BUFFER FROM: " << machine << " -- " << r_buffer << std::endl;
-/// DEBUGGING
-if(response[0] == '8'){TEMPCOUNTER++;std::cout << "OFFLINE MACHINES: " << TEMPCOUNTER << " OUT OF " << MACHINE_LIST.size() << std::endl;}
-/// END
-char *b = new char[r_buffer.size()+1];
-b[r_buffer.size()]=0;
-memcpy(b,r_buffer.c_str(), r_buffer.size());
-if(response[0] == '2')
-{
-    parse_event_block(b, machine);
-}
-delete b;
-/*
-        if(socket.is_open())
+        char *b = new char[r_buffer.size()+1];
+        b[r_buffer.size()]=0;
+        memcpy(b,r_buffer.c_str(), r_buffer.size());
+        if(response[0] == '2')
         {
-            socket.shutdown(boost::asio::ip::tcp::socket::shutdown_send);
-            socket.shutdown(boost::asio::ip::tcp::socket::shutdown_receive);
-            socket.close();
-            //std::cout << "Closing socket: " << machine << std::endl;
+            // Parse the data that was received from the client which can be of N length
+            parse_event_block(b, machine);
         }
-*/
+        delete b;
     }
     catch(boost::system::system_error &e)
     {
-        std::cout << machine << " GatherError: " << e.what() << std::endl;
-        // Gather logging needs to go here
+        // Instead of logging to file any errors which could grow the log file too large, this is used to set the client machines status
        /// errno 111 == connection refused
        /// errno 110 == connection timeout
         if(e.code() == boost::asio::error::timed_out)
         {
             //BLACKLIST[machine] = 1;
             MAP_MNAME_STATUS[machine] = 3;
-            //update_mstatus(machine);
         }
         if(e.code() == boost::asio::error::connection_refused)
         {
             boost::unique_lock<boost::mutex> scoped_lock(mlremove_mutex);
             //BLACKLIST[machine] = 2;
             MAP_MNAME_STATUS[machine] = 3;
-            //update_mstatus(machine);
         }
     }
 }
 
+/**
+    This threaded function deals with incomming communications from Clients.  Mainly used for clients calling home for the first time.  This will add new clients to the monitoring list,
+    send the appropriate program list based on the OS of the client.
+
+    @param socket_ptr socket of the Client
+**/
 void handle_listen(socket_ptr sock)
 {
     // Handle all incoming communications from a Client here in a seperate thread
@@ -549,10 +545,9 @@ void handle_listen(socket_ptr sock)
             int flag = data[0] - '0';
             data[read_length] = '\0';
             string mName = data;
-            //mName = mName.substr(1);
             int os = data[1] - '0';
             mName = mName.substr(2);
-//std::cout << mName << " called home with OS: " << os << " Flag: " << flag << std::endl;
+
             if(flag == 1)
             {
                 // Client is calling home, add it to the list of machines to be monitored if not already on it
@@ -562,15 +557,7 @@ void handle_listen(socket_ptr sock)
                     if(BLACKLIST[mName] == 1)
                     {
                         BLACKLIST[mName] = 0;
-                        std::cout << mName << " off BLACKLIST" << std::endl;
                     }
-                    /*
-                    else
-                    {
-                        BLACKLIST[mName] = 1;
-                        std::cout << mName << " added BLACKLIST for possibly spamming" << std::endl;
-                    }
-                    */
                 }
                 else
                 {
@@ -598,9 +585,8 @@ void handle_listen(socket_ptr sock)
                             data = data + windows_list[x];
                     }
                     size_t mlen = strlen(data.c_str());
-                    //boost::asio::write(*sock, boost::asio::buffer(data, mlen));
                     size_t sent = sock->send(boost::asio::buffer(data, mlen));
-//std::cout << "Windows sending: " << data << " " << sent << std::endl;
+
                 }
                 else if(os == 2)
                 {
@@ -614,23 +600,11 @@ void handle_listen(socket_ptr sock)
                     }
                     size_t mlen = strlen(data.c_str());
                     boost::asio::write(*sock, boost::asio::buffer(data, mlen));
-//std::cout << "LInux sending: " << data << std::endl;
                 }
-
             }
             sock->close();
             /** OTHER FLAGS need to go here --- TODO!!! **/
-
         }
-        /*
-        if(sock->is_open())
-        {
-            //sock->shutdown(boost::asio::ip::tcp::socket::shutdown_send);
-            //sock->shutdown(boost::asio::ip::tcp::socket::shutdown_receive);
-            //sock->close();
-            //std::cout << "Closing LISTEN socket" << std::endl;
-        }
-        */
     }
     catch(std::exception &e)
     {
@@ -650,9 +624,13 @@ void handle_listen(socket_ptr sock)
     }
 }
 
+
+/**
+    This threaded function will loop forever.  For each new incomming connection attempt on the listen port it will spawn a new thread to deal with that connection.  This is a blocking
+    function.
+**/
 void listen_task()
 {
-//pool p(100);
     while(true)
     {
         // Loop forever, listening for incoming communications from Clients, for each new connection
@@ -671,11 +649,14 @@ void listen_task()
     }
 }
 
+
+/**
+    This threaded function loops forever.  For each machine on the monitored list a new thread is spawned to deal with that machines data gathering.  This function cycles every minute.
+**/
 void gather_task()
 {
     while(true)
     {
-        TEMPCOUNTER = 0;/// DEBUGGING
         // Wait until there are machines to be monitored
         if(MACHINE_LIST.size() == 0)
             sleep(1);
@@ -696,22 +677,17 @@ void gather_task()
             }
 
             // For each machine currently on the list, spawn a thread to connect and gather
-std::cout << "MACHINE_LIST SIZE: " << MACHINE_LIST.size() << " :::: " << current->tm_min << ":" << current->tm_sec << std::endl;
-            std::vector<boost::thread> thread_ids;
-int COUNTER = 0;
             for(unsigned int i = 0; i < MACHINE_LIST.size(); i++)
             {
                 if(BLACKLIST[MACHINE_LIST[i]] == 0)
                 {
-                    //p.schedule(boost::bind(handle_gather, MACHINE_LIST[i]));
                     boost::thread t(boost::bind(handle_gather, MACHINE_LIST[i]));
-                    //thread_ids.push_back(t);
-COUNTER++;
                 }
                 else
-                    std::cout << "SKIPPING BLACKLIST STATUS for " << MACHINE_LIST[i] << ": " << BLACKLIST[MACHINE_LIST[i]] << std::endl;
+                {
+                    //std::cout << "SKIPPING BLACKLIST STATUS for " << MACHINE_LIST[i] << ": " << BLACKLIST[MACHINE_LIST[i]] << std::endl;
+                }
             }
-std::cout << "Sent gather request to: " << COUNTER << " machines" << std::endl;
 
             now = time(NULL);
             current = localtime(&now);
@@ -720,6 +696,9 @@ std::cout << "Sent gather request to: " << COUNTER << " machines" << std::endl;
     }
 }
 
+/**
+    This threaded function loops forever.  For each machine on the status list an update is made to the machines current status in the database.
+**/
 void update_mstatus()
 {
     /** Loop forever preventing this function from ever returning if a crash occurs **/
@@ -740,25 +719,19 @@ void update_mstatus()
                         mysqlpp::Query query = conn.query();
                         mysqlpp::StoreQueryResult res;
 
-/* Temp blockingif(MAP_MNAME_STATUS[machine] == 0)
-                    MAP_MNAME_STATUS[machine] = 2;
-*/
                         if(it->second == 0)
                             MAP_MNAME_STATUS[it->first] = 2;
 
                         /** Lookup machine ID from database **/
-                        //query << "SELECT machine_id FROM machine WHERE machine_name=\"" << machine << "\"";
                         query << "SELECT machine_id FROM machine WHERE machine_name=\"" << it->first << "\"";
                         if(res = query.store())
                         {
                             if(res.num_rows() == 0)
                             {
                                 /** Machine does not exist in database yet, so add it **/
-                                //query << "INSERT INTO machine(machine_name,machine_a_id,machine_status) VALUES(\"" << machine << "\",1," << MAP_MNAME_STATUS[machine] << ")";
                                 query << "INSERT INTO machine(machine_name,machine_a_id,machine_status,last_communication) VALUES(\"" << it->first << "\",1," << it->second << ",unix_timestamp())";
                                 query.exec();
 
-                                //query << "SELECT machine_id FROM machine WHERE machine_name=\"" << machine << "\"";
                                 query << "SELECT machine_id FROM machine WHERE machine_name=\"" << it->first << "\"";
                                 if(res = query.store())
                                 {
@@ -768,7 +741,6 @@ void update_mstatus()
                                     }
 
                                     /** Update the machine status **/
-                                    //query << "UPDATE machine SET machine_status=" << machine << " WHERE machine_id=" << machine_id;
                                     query << "UPDATE machine SET machine_status=" << it->first << ",last_communication=unix_timestamp() WHERE machine_id=" << machine_id;
                                     query.exec();
                                 }
@@ -785,7 +757,6 @@ void update_mstatus()
                                 }
 
                                 /** Update the machine status **/
-                                //query << "UPDATE machine SET machine_status=" << MAP_MNAME_STATUS[machine] << " WHERE machine_id=" << machine_id;
                                 if(it->second == 3)
                                 {
                                     // If machine_status == OFFLINE, don't update the last_communication timestamp
@@ -825,9 +796,12 @@ void update_mstatus()
     }
 }
 
+/**
+    This threaded function is called at the end of the gathering cycle.  It uploads all EVENTs that were collected from the clients and then clears the EVENT list.  If new users or machines
+    are found then they are added to the database in this function.
+**/
 void upload_task()
 {
-    /** Launch machine status updating thread **/
      try
     {
         mysqlpp::Connection conn(false);
@@ -841,14 +815,8 @@ void upload_task()
             {
                 if(conn.connected())
                 {
-                  int user_id, machine_id;
-/*
-time_t now;
-struct tm *current;
-now = time(NULL);
-current = localtime(&now);
-std::cout << EVENTS_TO_UPLOAD.size() << " EVENTS to be added for " << current->tm_min << ":" << current->tm_sec << std::endl;
-*/
+                    int user_id, machine_id;
+
                     // Obtain MUTEX
                     boost::unique_lock<boost::mutex> scoped_lock(event_mutex);
                     EVENT e = EVENTS_TO_UPLOAD.back();
@@ -872,9 +840,6 @@ std::cout << EVENTS_TO_UPLOAD.size() << " EVENTS to be added for " << current->t
                             }
                             else
                             {
-                                // No user currently exists with that ID
-                                std::cout << "Should be inserting new user... " << e.user << " -- " << res.num_rows() << std::endl;
-                                if(e.user.length() > 8){std::cout << "Strange username from: " << e.machine << std::endl;}
                                 // Insert the user into the DB
                                 query << "INSERT INTO user(user_is_guest,user_name,guest_type) VALUES(1,\"" << e.user << "\"," << e.guest_type << ")";
                                 if(!query.exec())
@@ -907,16 +872,10 @@ std::cout << EVENTS_TO_UPLOAD.size() << " EVENTS to be added for " << current->t
                                 /// Insert EVENT
                                 query << "INSERT INTO event(event_timestamp,event_machine_id,event_user_id,event_data,event_data_offset) ";
                                 query << "VALUES(" << e.timestamp << "," << machine_id << "," << user_id << "," << e.data << "," << e.block_offset << ")";
-/// Temporary debugging
-if(machine_id == 20143)
-{
-    std::cout << "DATA -- " << e.data << std::endl;
-}
 
                                 if(!query.exec())
                                 {
-                                    //std::cout << query.str() << std::endl;
-                                    //std::cout << "Insert event failed: " << query.error() << "   on: " << e.machine << std::endl;
+                                    // insert event failed
                                 }
                             }
                             else
@@ -943,13 +902,11 @@ if(machine_id == 20143)
                             line = line + " -- Upload Error: " + e.what();
                             fputs(line.c_str(), efp);
                         }
-                        std::cout << "update:: " << e.what() << std::endl;
                     }
                 }
                 else
                 {
-                    //conn.connect(DB, DB_SERVER, DB_USR, DB_PSWD);
-                    std::cout << "CONNECTION FAILED!!!" << std::endl;
+                    //connection failed
                 }
             }
         }
@@ -993,9 +950,6 @@ void current_prog_setup()
             // Set the max bit position
             max_bit = res[0]["max(bit_pos)"];
 
-            //std::map<int, std::string> windows_list;
-            //std::map<int, std::string> linux_list;
-
             for(int j = 1; j <= max_bit; ++j)
             {
                 windows_list.insert(std::pair<int,std::string>(j,std::string("")));
@@ -1036,7 +990,6 @@ void current_prog_setup()
                             if(primary==1)
                             {
                                 _wpname = std::string(row[0]);
-                                //windows_list.insert(std::pair<int,std::string>(i,_wpname));
                                 windows_list[i] = _wpname;
                             }
                             else
@@ -1044,7 +997,6 @@ void current_prog_setup()
                                 // 2nd process name to look for
                                 _wpname = std::string(row[3]);
                                 _wpname = _wpname + std::string(":") + std::string(row[0]);
-                                //windows_list.insert(std::pair<int,std::string>(i,_wpname));
                                 windows_list[i] = _wpname;
                             }
                         }
@@ -1053,7 +1005,6 @@ void current_prog_setup()
                             if(primary==1)
                             {
                                 _lpname = std::string(row[0]);
-                                //linux_list.insert(std::pair<int,std::string>(i,_lpname));
                                 linux_list[i] = _lpname;
                             }
                             else
@@ -1061,50 +1012,44 @@ void current_prog_setup()
                                 // 2nd process name to look for
                                 _lpname = std::string(row[3]);
                                 _lpname = _wpname + std::string(":") + std::string(row[0]);
-                                //linux_list.insert(std::pair<int,std::string>(i,_lpname));
                                 linux_list[i] = _lpname;
                             }
                         }
                     }
                 }
             }
-
-            for(int x = 1; x <= max_bit; ++x)
-            {
-                std::cout << "Windows Bit: " << x << " " << windows_list[x] << std::endl;
-                std::cout << "Linux Bit: " << x << " " << linux_list[x] << std::endl;
-            }
         }
         else
         {
             // Select max bit in use failed
-            std::cout << "Select max_bit failed" << std::endl;
         }
-
         conn.disconnect();
     }
     catch(std::exception &e)
     {
-        std::cout << "Current_prog_setup(): " << e.what() << std::endl;
+        /** Logging TODO::: **/
     }
 }
 
+/**
+    Initialization function.  Any Server initialization can be placed here.  For now it simply reads the config file and sets all the Server settings.
+**/
 void init()
 {
-    cout << "Any Server initialization can be done here before startup" << endl;
-
     // Load files that are needed
     try{
         efp = fopen(ERRLOG, "w");
     }catch(exception &e)
     {
-        std::cout << "INIT() -- " << e.what() << std::endl;
+        /** Logging TODO::: **/
     }
 }
 
 /**
     Reads from the Server configuration file, setting all required parameters.  If any are missing, incorrectly set, or otherwise wrong,
     returns a -1 and forces the Server to shutdown.
+
+    TODO::: logging of various config file errors needs to go here
 
     @return int value indicating success or failure
 **/
@@ -1115,17 +1060,15 @@ int set_config_options()
     std::ifstream cfgfile("config");
     if(!cfgfile)
     {
-        std::cout << "No config file found" << std::endl;
+        // No config file found
         return -1;
     }
     while(cfgfile)//while(cfgfile >> id >> eq >> val)
     {
         getline(cfgfile, line);
         if(line[0] == '#' || line.compare("") == 0) continue; // skip comments
-        //if(eq != "=") throw std::runtime_error("Parse error");
         else
         {
-            std::cout << "line: " << line << std::endl;
             std::vector<std::string> s;
             boost::split(s, line, boost::is_any_of(" "));
             if(s.size() > 0)
@@ -1137,56 +1080,56 @@ int set_config_options()
 
     if(options["LISTEN_PORT"].compare("") == 0)
     {
-        std::cout << "Configuration Error: No listen port configured in conf file" << std::endl;
+        //std::cout << "Configuration Error: No listen port configured in conf file" << std::endl;
         return -1;
     }
     else
         LISTEN_PORT = atoi(options["LISTEN_PORT"].c_str());
     if(options["SEND_PORT"].compare("") == 0)
     {
-        std::cout << "Configuration Error: No send port configured in conf file" << std::endl;
+        //std::cout << "Configuration Error: No send port configured in conf file" << std::endl;
         return -1;
     }
     else
         SEND_PORT = atoi(options["SEND_PORT"].c_str());
     if(options["DB"].compare("") == 0)
     {
-        std::cout << "Configuration Error: No database configured in conf file" << std::endl;
+        //std::cout << "Configuration Error: No database configured in conf file" << std::endl;
         return -1;
     }
     else
         DB = &(options["DB"])[0];
     if(options["DB_SERVER"].compare("") == 0)
     {
-        std::cout << "Configuration Error: No database server configured in conf file" << std::endl;
+        //std::cout << "Configuration Error: No database server configured in conf file" << std::endl;
         return -1;
     }
     else
         DB_SERVER = &(options["DB_SERVER"])[0];
     if(options["DB_USER"].compare("") == 0)
     {
-        std::cout << "Configuration Error: No user name configured in conf file" << std::endl;
+        //std::cout << "Configuration Error: No user name configured in conf file" << std::endl;
         return -1;
     }
     else
         DB_USR = &(options["DB_USER"])[0];
     if(options["DB_PSWD"].compare("") == 0)
     {
-        std::cout << "Configuration Error: No password configured in conf file" << std::endl;
+        //std::cout << "Configuration Error: No password configured in conf file" << std::endl;
         return -1;
     }
     else
         DB_PSWD = &(options["DB_PSWD"])[0];
     if(options["MSTATUS_TIMER"].compare("") == 0)
     {
-        std::cout << "Configuration Error: No mstatus timer configured in conf file" << std::endl;
+        //std::cout << "Configuration Error: No mstatus timer configured in conf file" << std::endl;
         return -1;
     }
     else
         MSTATUS_TIMER = atoi(options["MSTATUS_TIMER"].c_str());
     if(options["ERRLOG"].compare("") == 0)
     {
-        std::cout << "Configuration Error: No error file configured in conf file" << std::endl;
+        //std::cout << "Configuration Error: No error file configured in conf file" << std::endl;
         return -1;
     }
     else
@@ -1194,16 +1137,18 @@ int set_config_options()
     return 0;
 }
 
+/**
+    This function sets up the program list of monitored programs.
+**/
 void config()
 {
-    // Read config file and set variable parameters
-    //if(set_config_options() < 0)
-    //    exit(1);
-
     // Setup current programs
     current_prog_setup();
 }
 
+/**
+    This function sets up the various threadpools and their assigned tasks (listening, gathering, uploading, status updating).
+**/
 void run_server()
 {
     time_t now;
@@ -1237,6 +1182,9 @@ void run_server()
     }
 }
 
+/**
+    Main
+**/
 int main()
 {
     // Init
