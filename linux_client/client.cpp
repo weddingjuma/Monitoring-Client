@@ -248,7 +248,6 @@ std::string get_current_event() /****** TOOOOOOOOOOOO DOOOOOOOOOOOOOOO.... add r
 		else
 			block = (pcount / EVENTSIZE);
 
-
 		for(int i = 0; i < block; i++)
 		{
 			char buffer[32];
@@ -257,8 +256,7 @@ std::string get_current_event() /****** TOOOOOOOOOOOO DOOOOOOOOOOOOOOO.... add r
 		}
 		std::vector<unsigned char> EVENT = build_event(pdata, get_current_local_user());
 
-		/* Store the EVENT in case the Client is unable to send it to the Server */
-
+		/* Convert the current EVENT into a string and return */
 		std::string line = "";
 		for(unsigned i = 0; i < EVENT.size(); i++)
 		{
@@ -334,7 +332,17 @@ void display_linux_msgbox()
 							char *pipe = (char*)"/tmp/fifo";
 							if(mkfifo(pipe, 0666) < 0)
 							{
-                                /** Logging TODO **/
+                                /** Could not create FIFO **/
+                                time_t tt = time(NULL);
+                                struct tm tm;
+                                char buf[32];
+                                tm = *localtime(&tt);
+                                strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+                                std::ofstream fLog (ERR_LOG, std::ios::app);
+                                if(fLog.is_open())
+                                {
+                                    fLog << "display_linux_msgbox(): Failed to mkfifo -- " << buf << "\n";
+                                }
                             }
                             else
                             {
@@ -347,53 +355,183 @@ void display_linux_msgbox()
                                 std::string m = EXPIRE_MSG;
                                 m.append(_buf);
                                 size_t r = write(fd, m.c_str(), sizeof(m.c_str()));
+
+                                /** No bytes were written to FIFO, errno should be set with the error **/
+                                if(r <= 0)
+                                {
+                                    time_t tt = time(NULL);
+                                    struct tm tm;
+                                    char buf[32];
+                                    tm = *localtime(&tt);
+                                    strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+                                    std::ofstream fLog (ERR_LOG, std::ios::app);
+                                    if(fLog.is_open())
+                                    {
+                                        fLog << "display_linux_msgbox(): Failed to write to FIFO -- " << strerror(errno) << " " << buf << "\n";
+                                    }
+                                }
                                 close(fd);
                             }
+
+                            /** remove FIFO, it will remain open if either end still has it open. **/
+                            close(pipe);
+                            unlinke(pipe);
 						}
 						else if( (fifteen && !five) && ( ((t + msg_one) >= current) && (current >= (t + msg_five)) ) )
 						{
 							five = true;
 							int fd;
 							char *pipe = (char*)"/tmp/fifo";
-							fd = mkfifo(pipe, 0666);
-                            struct tm *_t;
-							time_t long_t = time(NULL) + (60*5);
-							_t = localtime(&long_t);
-							char _buf[16];
-							sprintf(_buf,"%d:%d",_t->tm_hour-12,_t->tm_min);
-							std::string m = EXPIRE_MSG;
-							m.append(_buf);
-							write(fd, m.c_str(), sizeof(m.c_str()));
-							close(fd);
+							if(mkfifo(pipe, 0666) < 0)
+							{
+                                /** Could not create FIFO **/
+                                time_t tt = time(NULL);
+                                struct tm tm;
+                                char buf[32];
+                                tm = *localtime(&tt);
+                                strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+                                std::ofstream fLog (ERR_LOG, std::ios::app);
+                                if(fLog.is_open())
+                                {
+                                    fLog << "display_linux_msgbox(): Failed to mkfifo -- " << buf << "\n";
+                                }
+                            }
+                            else
+                            {
+                                fd = open(pipe, O_WRONLY);
+                                struct tm *_t;
+                                time_t long_t = time(NULL) + (60*5);
+                                _t = localtime(&long_t);
+                                char _buf[16];
+                                sprintf(_buf,"%d:%d",_t->tm_hour-12,_t->tm_min);
+                                std::string m = EXPIRE_MSG;
+                                m.append(_buf);
+                                write(fd, m.c_str(), sizeof(m.c_str()));
+
+                                /** No bytes were written to FIFO, errno should be set with the error **/
+                                if(r <= 0)
+                                {
+                                    time_t tt = time(NULL);
+                                    struct tm tm;
+                                    char buf[32];
+                                    tm = *localtime(&tt);
+                                    strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+                                    std::ofstream fLog (ERR_LOG, std::ios::app);
+                                    if(fLog.is_open())
+                                    {
+                                        fLog << "display_linux_msgbox(): Failed to write to FIFO -- " << strerror(errno) << " " << buf << "\n";
+                                    }
+                                }
+                                close(fd);
+                            }
+
+							/** remove FIFO, it will remain open if either end still has it open. **/
+                            close(pipe);
+                            unlinke(pipe);
 						}
 						else if( (fifteen && five && !one) && ( ((t + msg_expired) >= current) && (current >= (t + msg_one)) ) )
 						{
 							one = true;
 							int fd;
 							char *pipe = (char*)"/tmp/fifo";
-							fd = mkfifo(pipe, 0666);
-                            struct tm *_t;
-							time_t long_t = time(NULL) + (60*1);
-							_t = localtime(&long_t);
-							char _buf[16];
-							sprintf(_buf,"%d:%d",_t->tm_hour-12,_t->tm_min);
-							std::string m = EXPIRE_MSG;
-							m.append(_buf);
-							write(fd, m.c_str(), sizeof(m.c_str()));
-							close(fd);
+							if(mkfifo(pipe, 0666) < 0)
+							{
+                                /** Could not create FIFO **/
+                                time_t tt = time(NULL);
+                                struct tm tm;
+                                char buf[32];
+                                tm = *localtime(&tt);
+                                strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+                                std::ofstream fLog (ERR_LOG, std::ios::app);
+                                if(fLog.is_open())
+                                {
+                                    fLog << "display_linux_msgbox(): Failed to mkfifo -- " << buf << "\n";
+                                }
+                            }
+                            else
+                            {
+                                fd = open(pipe, O_WRONLY);
+                                struct tm *_t;
+                                time_t long_t = time(NULL) + (60*1);
+                                _t = localtime(&long_t);
+                                char _buf[16];
+                                sprintf(_buf,"%d:%d",_t->tm_hour-12,_t->tm_min);
+                                std::string m = EXPIRE_MSG;
+                                m.append(_buf);
+                                size_t r = write(fd, m.c_str(), sizeof(m.c_str()));
+
+                                /** No bytes were written to FIFO, errno should be set with the error **/
+                                if(r <= 0)
+                                {
+                                    time_t tt = time(NULL);
+                                    struct tm tm;
+                                    char buf[32];
+                                    tm = *localtime(&tt);
+                                    strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+                                    std::ofstream fLog (ERR_LOG, std::ios::app);
+                                    if(fLog.is_open())
+                                    {
+                                        fLog << "display_linux_msgbox(): Failed to write to FIFO -- " << strerror(errno) << " " << buf << "\n";
+                                    }
+                                }
+                                close(fd);
+                            }
+
+                            /** remove FIFO, it will remain open if either end still has it open. **/
+                            close(pipe);
+                            unlinke(pipe);
 						}
 						else if( (fifteen && five && one && !expired) && ( current >= (t + msg_expired) ) )
 						{
 							expired = true;
 							int fd;
 							char *pipe = (char*)"/tmp/fifo";
-							fd = mkfifo(pipe, 0666);
-							std::string m = EXPIRED_MSG;
-							write(fd, m.c_str(), sizeof(m.c_str()));
-							close(fd);
+							if(mkfifo(pipe, 0666) < 0)
+							{
+                                /** Could not create FIFO **/
+                                time_t tt = time(NULL);
+                                struct tm tm;
+                                char buf[32];
+                                tm = *localtime(&tt);
+                                strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+                                std::ofstream fLog (ERR_LOG, std::ios::app);
+                                if(fLog.is_open())
+                                {
+                                    fLog << "display_linux_msgbox(): Failed to mkfifo -- " << buf << "\n";
+                                }
+                            }
+                            else
+                            {
+                                fd = open(pipe, O_WRONLY);
+
+                                std::string m = EXPIRED_MSG;
+                                size_t r = write(fd, m.c_str(), sizeof(m.c_str()));
+
+                                /** No bytes were written to FIFO, errno should be set with the error **/
+                                if(r <= 0)
+                                {
+                                    time_t tt = time(NULL);
+                                    struct tm tm;
+                                    char buf[32];
+                                    tm = *localtime(&tt);
+                                    strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+                                    std::ofstream fLog (ERR_LOG, std::ios::app);
+                                    if(fLog.is_open())
+                                    {
+                                        fLog << "display_linux_msgbox(): Failed to write to FIFO -- " << strerror(errno) << " " << buf << "\n";
+                                    }
+                                }
+                                close(fd);
+                            }
+
+                            /** remove FIFO, it will remain open if either end still has it open. **/
+                            close(pipe);
+                            unlinke(pipe);
 
 							/// Wait 60 seconds and then kill all user applications and log them off
 							kick_expired_accounts();
+
+							/** Set message flags all to FALSE **/
 							fifteen = false;
 							five = false;
 							one = false;
@@ -716,13 +854,29 @@ void execute_script()
 		if(_hour == tm_struct->tm_hour && _min == tm_struct->tm_min)
 		{
 			// Execute script
-			system(it->first.c_str());
+			int r = system(it->first.c_str());
+
+			if(r < 0)
+			{
+                /** Failed to execute script **/
+                time_t tt = time(NULL);
+                struct tm tm;
+                char buf[32];
+                tm = *localtime(&tt);
+                strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+                std::ofstream fLog (ERR_LOG, std::ios::app);
+                if(fLog.is_open())
+                {
+                    fLog << "execute_script(): Failed to run script -- " << it->first.c_str() << " " << strerror(errno) << " " << buf << "\n";
+                }
+			}
 		}
 	}
 }
 
 /**
     Helper function that takes a string, and a delimiter character and returns a vector<> of strings after splitting the original at every occurance of the delimiter.
+
     @param string Original string to be split
     @param string delimiter character to split on
     @ret   vector Vector of strings after performing the split
@@ -762,7 +916,6 @@ void create_directories()
         {
             fLog << "ERROR in create_directories() -- " << strerror(errno) << " -- " << buf << "\n";
         }
-        fLog.close();
 	}
 #endif
 
@@ -775,6 +928,7 @@ void create_directories()
 
 /**
     Sleep for a given amount of seconds.
+
     @param int milliseconds to sleep
 **/
 void mSleep(int ms)
@@ -902,24 +1056,43 @@ void gather_data()
 				line = line + "\n";
 				ofstream efile;
 				try{
-				efile.open(EVENT_FILE, std::ios_base::app);
-				if(efile.is_open())
-				{
-					efile << line.c_str();
-
-				}
-				else
-				{
-					efile.open(EVENT_FILE, std::ios_base::app);
-					efile << line.c_str();
-				}
-				}catch(std::exception e)
-				{
-					/** LOGGING TODO **/
-				}
-				efile.close();
+                    efile.open(EVENT_FILE, std::ios_base::app);
+                    if(efile.is_open())
+                    {
+                        efile << line.c_str();
+                    }
+                    else
+                    {
+                        efile.open(EVENT_FILE, std::ios_base::app);
+                        efile << line.c_str();
+                    }
+                }catch(std::exception e)
+                {
+                    /** Logging error **/
+                    time_t tt = time(NULL);
+                    struct tm tm;
+                    char buf[32];
+                    tm = *localtime(&tt);
+                    strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+                    std::ofstream fLog (ERR_LOG, std::ios::app);
+                    if(fLog.is_open())
+                    {
+                        fLog << "ERROR in gather() -- " << e.what() << " -- " << buf << "\n";
+                    }
+                }
+                efile.close();
 			}catch(std::exception &e){
-				/** LOGGING TODO **/
+				/** Logging error **/
+                time_t tt = time(NULL);
+                struct tm tm;
+                char buf[32];
+                tm = *localtime(&tt);
+                strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+                std::ofstream fLog (ERR_LOG, std::ios::app);
+                if(fLog.is_open())
+                {
+                    fLog << "ERROR in gather() -- " << e.what() << " -- " << buf << "\n";
+                }
 			}
 		}
 		else
@@ -936,6 +1109,7 @@ void gather_data()
 
 /**
     This function checks the logged in account to see if it is allowed.  If not then it kicks the user after sending them a message.
+
     @param string REGEX expression for the blocked account
 
     TODO::: Right now on our systems only Linux clients block require added features to block accounts from logging in, but that is handled through PAM, so this is not needed.  Windows
@@ -1074,11 +1248,6 @@ void listen_thread()
 
 						totalSend = 0;
 						std::ofstream fLog (ERR_LOG, std::ios::app);
-						if(fLog.is_open())
-						{
-							fLog << "Server sent: " << tmp.data() << " size of EVENTS: " << EVENTS.size() << "\n";
-						}
-						fLog.close();
 
 						// Read in stored EVENTS then clear the file
 						std::ifstream wfp(EVENT_FILE);
@@ -1125,14 +1294,7 @@ void listen_thread()
                             event.clear();
                             totalSend += sent;
                             std::ofstream fLog (ERR_LOG, std::ios::app);
-                            if(fLog.is_open())
-                            {
-                                fLog << "Server sent: " << tmp.data() << " -- response: " << line << "\n";
-                            }
-                            fLog.close();
 						}
-						// Clear file
-						//fstream f(EVENT_FILE, ios::out | ios::trunc);
 						LAST_SERVER_COMMUNICATION = time(NULL);
 					}
 					else
@@ -1164,7 +1326,6 @@ void listen_thread()
                     }
 
                     ofile.close(); /* close file */
-					/* Needed??? *///LAST_SERVER_COMMUNICATION = time(NULL);
                 }
 
                 // read_some() will exit with boost::asio::error::eof which is how we know to break the loop
@@ -1197,9 +1358,8 @@ void listen_thread()
             std::ofstream fLog (ERR_LOG, std::ios::app);
             if(fLog.is_open())
             {
-                fLog << e.what() << " -- " << buf << "\n";
+                fLog << "Error in listen_thread(): " << e.what() << " -- " << buf << "\n";
             }
-            fLog.close();
         }
     }
 }
@@ -1296,13 +1456,13 @@ std::string get_rounded_timestamp()
     int seconds = loctime->tm_sec;
     char buf[128];
     sprintf(buf, "%d", (int)ctime-seconds);
-    //std::cout << "buf: " << buf << std::endl;
     std::string ret = buf;
     return ret;
 }
 
 /**
     Gets the current locally logged in user account name.
+
     @ret string - User name
 **/
 std::string get_current_local_user()
@@ -1315,11 +1475,25 @@ std::string get_current_local_user()
 			return temp;
 		}
 	}
+
+	/** Failed to get a currently logged in local user **/
+	time_t tt = time(NULL);
+    struct tm tm;
+    char buf[32];
+    tm = *localtime(&tt);
+    strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+    std::ofstream fLog (ERR_LOG, std::ios::app);
+    if(fLog.is_open())
+    {
+        fLog << "Error in get_current_local_user() -- " << buf << "\n";
+    }
+
 	return "";
 }
 
 /**
     Gets the current remotely logged in user account name.
+
     @ret string - User name
 
     TODO::: Requires implementation and testing on both Linux and Windows systems (Ulteo as well)
@@ -1334,11 +1508,24 @@ std::string get_current_remote_user()
 			return temp;
 		}
 	}
+
+	/** Failed to get a currently logged in remote user **/
+	time_t tt = time(NULL);
+    struct tm tm;
+    char buf[32];
+    tm = *localtime(&tt);
+    strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+    std::ofstream fLog (ERR_LOG, std::ios::app);
+    if(fLog.is_open())
+    {
+        fLog << "Error in get_current_remote_user() -- " << buf << "\n";
+    }
 	return "";
 }
 
 /**
     Gets the current number of programs being monitored from the master list file.
+
     @ret int - Number of programs in the file
 **/
 int prog_number()
@@ -1348,6 +1535,7 @@ int prog_number()
 
 /**
     Returns the number of programs that are currently being monitored on Windows.  For use in bit position location for that program in the EVENT data block(s).
+
     @ret int Number of monitored programs
 **/
 int win_prog_number()
@@ -1371,6 +1559,7 @@ int win_prog_number()
 
 /**
     Returns the number of programs that are currently being monitored on Linux.  For use in bit position location for that program in the EVENT data block(s).
+
     @ret int Number of monitored programs
 **/
 int linux_prog_number()
@@ -1395,7 +1584,7 @@ int linux_prog_number()
         {
             fLog << "linux_prog_number(): Failed to open program list -- " << buf << "\n";
         }
-        fLog.close();
+        fclose(fp);
         return n;
     }
 #ifdef __linux__
@@ -1439,7 +1628,6 @@ void linux_set_program_list()
         {
             fLog << "linux_tally_program_count(): Failed to open program list -- " << buf << "\n";
         }
-        fLog.close();
     }
     else
     {
@@ -1615,6 +1803,20 @@ std::string linux_get_running_proc(std::string current_user)
     FILE *fp;
 #ifdef __linux__
     fp = popen(command, "r");
+    if(fp == NULL)
+    {
+        /** Failed to open pipe **/
+        time_t tt = time(NULL);
+        struct tm tm;
+        char buf[32];
+        tm = *localtime(&tt);
+        strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+        std::ofstream fLog (ERR_LOG, std::ios::app);
+        if(fLog.is_open())
+        {
+            fLog << "Error in linux_get_running_proc() -- " << buf << "\n";
+        }
+    }
 #endif
 #ifdef _WIN32
 	fp = _popen("tasklist", "r");
@@ -1732,7 +1934,34 @@ void linux_logoff_user(std::string u)
     std::string cmd = "killall -u " + u;
 #ifdef __linux__
     f = popen(cmd.c_str(), "w");
-	pclose(f);
+    if(f == NULL)
+    {
+        /** Failed to open pipe **/
+        time_t tt = time(NULL);
+        struct tm tm;
+        char buf[32];
+        tm = *localtime(&tt);
+        strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+        std::ofstream fLog (ERR_LOG, std::ios::app);
+        if(fLog.is_open())
+        {
+            fLog << "Error opening pipe in linux_logoff_user() -- " <<strerror(errno) << " " <<  buf << "\n";
+        }
+    }
+	if(pclose(f) < 0)
+	{
+        /** pclose() failed **/
+        time_t tt = time(NULL);
+        struct tm tm;
+        char buf[32];
+        tm = *localtime(&tt);
+        strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+        std::ofstream fLog (ERR_LOG, std::ios::app);
+        if(fLog.is_open())
+        {
+            fLog << "Error in linux_logoff_user() -- " << strerror(errno) << " " << buf << "\n";
+        }
+	}
 #endif
 #ifdef _WIN32
 	f = _popen(cmd.c_str(), "w");
@@ -1926,6 +2155,20 @@ bool linux_logged_in()
 	FILE *f;
 #ifdef __linux__
     f = popen("who", "r");
+    if(f == NULL)
+    {
+        /** pclose() failed **/
+        time_t tt = time(NULL);
+        struct tm tm;
+        char buf[32];
+        tm = *localtime(&tt);
+        strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+        std::ofstream fLog (ERR_LOG, std::ios::app);
+        if(fLog.is_open())
+        {
+            fLog << "Error in linux_logged_in() -- " << strerror(errno) << " " << buf << "\n";
+        }
+    }
 #endif
 	while(fgets(x, 200, f) != NULL)
     {
@@ -1933,7 +2176,20 @@ bool linux_logged_in()
     }
 
 #ifdef __linux__
-	pclose(f);
+	if(pclose(f) < 0)
+	{
+        /** pclose() failed **/
+        time_t tt = time(NULL);
+        struct tm tm;
+        char buf[32];
+        tm = *localtime(&tt);
+        strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+        std::ofstream fLog (ERR_LOG, std::ios::app);
+        if(fLog.is_open())
+        {
+            fLog << "Error in linux_logged_in() -- " << strerror(errno) << " " << buf << "\n";
+        }
+	}
 #endif
 
 	// Sort the output alphabetically
@@ -2145,9 +2401,8 @@ void call_home_task() /** FINISHED AND TESTED **/
 				std::ofstream fLog (ERR_LOG, std::ios::app);
 				if(fLog.is_open())
 				{
-                    fLog << "Call_Home(): " << e.what() << " -- " << buf << "\n";
+                    fLog << "call_home_task(): " << e.what() << " -- " << buf << "\n";
                 }
-				fLog.close();
 			}
 		}
 		mSleep(1);
@@ -2311,7 +2566,6 @@ int main(int ac, char **av)
 		{
             fLog << "Configuration File Exception caught: " << e.what() << " -- " << buf << "\n";
         }
-		fLog.close();
 	}
 
 	// Sync up with the local machines time and wait for a new minute to roll around so that data is gathered on the minute
