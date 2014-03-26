@@ -1768,7 +1768,7 @@ void kick_expired_accounts()
 	}
 #endif
 #ifdef __linux__
-    linux_logoff_user(getCurrentUser());
+    linux_logoff_user(get_current_local_user());
 #endif
 }
 
