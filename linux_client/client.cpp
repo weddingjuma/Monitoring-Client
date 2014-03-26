@@ -357,6 +357,13 @@ int msg_fifteen = 240;
                                 sprintf(_buf,"%d:%d",_t->tm_hour-12,_t->tm_min);
                                 std::string m = EXPIRE_MSG;
                                 m.append(_buf);
+
+                                std::ofstream fLog (ERR_LOG, std::ios::app);
+                                if(fLog.is_open())
+                                {
+                                    fLog << "should be trying to write -- " << strerror(errno) << " " << buf << "\n";
+                                }
+
                                 size_t r = write(fd, m.c_str(), sizeof(m.c_str()));
 
                                 /** No bytes were written to FIFO, errno should be set with the error **/
@@ -2573,7 +2580,7 @@ int main(int ac, char **av)
 
 	/*** Testing a new way of creating the FIFO ***/
 	char *pipe = (char*)"/tmp/fifo";
-    if(mkfifo(pipe, S_IROTH) < 0)
+    if(mkfifo(pipe, 0777) < 0)
     {
         /** Could not create FIFO **/
         time_t tt = time(NULL);
