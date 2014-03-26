@@ -321,7 +321,7 @@ void display_linux_msgbox()
 						// Current account already exists, so check to see if expired
 						time_t current = time(NULL);
 						//int msg_fifteen = ((2 * (60 * 60))-900);
-int msg_fifteen = 240;
+int msg_fifteen = 120;
 						int msg_five = ((2 * (60 * 60))-300);
 						int	 msg_one = ((2 * (60 * 60))-60);
 						int msg_expired = ((2 * (60 * 60)));
@@ -361,10 +361,11 @@ int msg_fifteen = 240;
                                 std::ofstream fLog (ERR_LOG, std::ios::app);
                                 if(fLog.is_open())
                                 {
-                                    fLog << "should be trying to write -- " << strerror(errno) << " " << buf << "\n";
+                                    fLog << "should be trying to write -- " << m << " " << strerror(errno) << "\n";
                                 }
 
-                                size_t r = write(fd, m.c_str(), sizeof(m.c_str()));
+//                                size_t r = write(fd, m.c_str(), sizeof(m.c_str()));
+				size_t r = write(fd, m.c_str(), m.length());
 
                                 /** No bytes were written to FIFO, errno should be set with the error **/
                                 if(r <= 0)
@@ -571,7 +572,7 @@ int msg_fifteen = 240;
 			expired = false;
 			mSleep(1);
 		}
-unlink((char*)"/tmp/fifo");
+//unlink((char*)"/tmp/fifo");
 		mSleep(60); // sleep 1 second
 	}
 #endif // __linux__
