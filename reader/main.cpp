@@ -30,7 +30,6 @@ int main()
         {
             fLog << "reader failed to open " << strerror(errno) << "\n";
         }
-        close("/tmp/reader.log");
         return -1;
     }
     else
@@ -40,7 +39,6 @@ int main()
         {
             fLog << "reader opened FIFO " << strerror(errno) << "\n";
         }
-        close("/tmp/reader.log");
     }
 
     while(LOGGED_IN)
