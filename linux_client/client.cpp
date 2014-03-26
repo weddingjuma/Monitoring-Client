@@ -320,21 +320,32 @@ void display_linux_msgbox()
 						time_t t = GUEST_EXPIRATION[user];
 						// Current account already exists, so check to see if expired
 						time_t current = time(NULL);
-						//int msg_fifteen = ((2 * (60 * 60))-900);
 int msg_fifteen = 120;
-						int msg_five = ((2 * (60 * 60))-300);
-						int	 msg_one = ((2 * (60 * 60))-60);
-						int msg_expired = ((2 * (60 * 60)));
+int msg_five = 240;
+int	 msg_one = 420;
+int msg_expired = 480;
+                        //int msg_fifteen = ((2 * (60 * 60))-900);
+						//int msg_five = ((2 * (60 * 60))-300);
+						//int	 msg_one = ((2 * (60 * 60))-60);
+						//int msg_expired = ((2 * (60 * 60)));
 
 						if(!fifteen && ( ((t + msg_five) >= current) && (current >= (t + msg_fifteen)) ) )
 						{
 							fifteen = true;
 							int fd;
-							/*
-							char *pipe = (char*)"/tmp/fifo";
-							if(mkfifo(pipe, 0666) < 0)
-							{
-                                // Could not create FIFO
+							fd = open((char*)"/tmp/fifo", O_WRONLY);
+                            struct tm *_t;
+                            time_t long_t = time(NULL) + (60*15);
+                            _t = localtime(&long_t);
+                            char _buf[16];
+                            sprintf(_buf,"%d:%d",_t->tm_hour-12,_t->tm_min);
+                            std::string m = EXPIRE_MSG;
+                            m.append(_buf);
+                            size_t r = write(fd, m.c_str(), m.length());
+
+                            /** No bytes were written to FIFO, errno should be set with the error **/
+                            if(r <= 0)
+                            {
                                 time_t tt = time(NULL);
                                 struct tm tm;
                                 char buf[32];
@@ -343,60 +354,28 @@ int msg_fifteen = 120;
                                 std::ofstream fLog (ERR_LOG, std::ios::app);
                                 if(fLog.is_open())
                                 {
-                                    fLog << "display_linux_msgbox(): Failed to mkfifo -- " << strerror(errno) << " " << buf << "\n";
+                                    fLog << "display_linux_msgbox(): Failed to write to FIFO -- " << strerror(errno) << " " << buf << "\n";
                                 }
                             }
-                            else
-                            {
-                            */
-                                fd = open((char*)"/tmp/fifo", O_WRONLY);
-                                struct tm *_t;
-                                time_t long_t = time(NULL) + (60*15);
-                                _t = localtime(&long_t);
-                                char _buf[16];
-                                sprintf(_buf,"%d:%d",_t->tm_hour-12,_t->tm_min);
-                                std::string m = EXPIRE_MSG;
-                                m.append(_buf);
-
-                                std::ofstream fLog (ERR_LOG, std::ios::app);
-                                if(fLog.is_open())
-                                {
-                                    fLog << "should be trying to write -- " << m << " " << strerror(errno) << "\n";
-                                }
-
-//                                size_t r = write(fd, m.c_str(), sizeof(m.c_str()));
-				size_t r = write(fd, m.c_str(), m.length());
-
-                                /** No bytes were written to FIFO, errno should be set with the error **/
-                                if(r <= 0)
-                                {
-                                    time_t tt = time(NULL);
-                                    struct tm tm;
-                                    char buf[32];
-                                    tm = *localtime(&tt);
-                                    strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
-                                    std::ofstream fLog (ERR_LOG, std::ios::app);
-                                    if(fLog.is_open())
-                                    {
-                                        fLog << "display_linux_msgbox(): Failed to write to FIFO -- " << strerror(errno) << " " << buf << "\n";
-                                    }
-                                }
-                                close(fd);
-                            //}
-
-                            /** remove FIFO, it will remain open if either end still has it open. **/
-                            //close(pipe);
-                            //unlink(pipe);
+                            close(fd);
 						}
 						else if( (fifteen && !five) && ( ((t + msg_one) >= current) && (current >= (t + msg_five)) ) )
 						{
 							five = true;
 							int fd;
-							/*
-							char *pipe = (char*)"/tmp/fifo";
-							if(mkfifo(pipe, 0666) < 0)
-							{
-                                // Could not create FIFO
+							fd = open((char*)"/tmp/fifo", O_WRONLY);
+                            struct tm *_t;
+                            time_t long_t = time(NULL) + (60*5);
+                            _t = localtime(&long_t);
+                            char _buf[16];
+                            sprintf(_buf,"%d:%d",_t->tm_hour-12,_t->tm_min);
+                            std::string m = EXPIRE_MSG;
+                            m.append(_buf);
+                            size_t r = write(fd, m.c_str(), m.length());
+
+                            /** No bytes were written to FIFO, errno should be set with the error **/
+                            if(r <= 0)
+                            {
                                 time_t tt = time(NULL);
                                 struct tm tm;
                                 char buf[32];
@@ -405,52 +384,28 @@ int msg_fifteen = 120;
                                 std::ofstream fLog (ERR_LOG, std::ios::app);
                                 if(fLog.is_open())
                                 {
-                                    fLog << "display_linux_msgbox(): Failed to mkfifo -- " << strerror(errno) << " " << buf << "\n";
+                                    fLog << "display_linux_msgbox(): Failed to write to FIFO -- " << strerror(errno) << " " << buf << "\n";
                                 }
                             }
-                            else
-                            {
-                            */
-                                fd = open((char*)"/tmp/fifo", O_WRONLY);
-                                struct tm *_t;
-                                time_t long_t = time(NULL) + (60*5);
-                                _t = localtime(&long_t);
-                                char _buf[16];
-                                sprintf(_buf,"%d:%d",_t->tm_hour-12,_t->tm_min);
-                                std::string m = EXPIRE_MSG;
-                                m.append(_buf);
-                                size_t r = write(fd, m.c_str(), sizeof(m.c_str()));
-
-                                /** No bytes were written to FIFO, errno should be set with the error **/
-                                if(r <= 0)
-                                {
-                                    time_t tt = time(NULL);
-                                    struct tm tm;
-                                    char buf[32];
-                                    tm = *localtime(&tt);
-                                    strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
-                                    std::ofstream fLog (ERR_LOG, std::ios::app);
-                                    if(fLog.is_open())
-                                    {
-                                        fLog << "display_linux_msgbox(): Failed to write to FIFO -- " << strerror(errno) << " " << buf << "\n";
-                                    }
-                                }
-                                close(fd);
-                            //}
-
-							/** remove FIFO, it will remain open if either end still has it open. **/
-                            //close(pipe);
-                            //unlink(pipe);
+                            close(fd);
 						}
 						else if( (fifteen && five && !one) && ( ((t + msg_expired) >= current) && (current >= (t + msg_one)) ) )
 						{
 							one = true;
 							int fd;
-							/*
-							char *pipe = (char*)"/tmp/fifo";
-							if(mkfifo(pipe, 0666) < 0)
-							{
-                                // Could not create FIFO
+							fd = open((char*)"/tmp/fifo", O_WRONLY);
+                            struct tm *_t;
+                            time_t long_t = time(NULL) + (60*1);
+                            _t = localtime(&long_t);
+                            char _buf[16];
+                            sprintf(_buf,"%d:%d",_t->tm_hour-12,_t->tm_min);
+                            std::string m = EXPIRE_MSG;
+                            m.append(_buf);
+                            size_t r = write(fd, m.c_str(), m.length());
+
+                            /** No bytes were written to FIFO, errno should be set with the error **/
+                            if(r <= 0)
+                            {
                                 time_t tt = time(NULL);
                                 struct tm tm;
                                 char buf[32];
@@ -459,52 +414,22 @@ int msg_fifteen = 120;
                                 std::ofstream fLog (ERR_LOG, std::ios::app);
                                 if(fLog.is_open())
                                 {
-                                    fLog << "display_linux_msgbox(): Failed to mkfifo -- " << strerror(errno) << " " <<  buf << "\n";
+                                    fLog << "display_linux_msgbox(): Failed to write to FIFO -- " << strerror(errno) << " " << buf << "\n";
                                 }
                             }
-                            else
-                            {
-                            */
-                                fd = open((char*)"/tmp/fifo", O_WRONLY);
-                                struct tm *_t;
-                                time_t long_t = time(NULL) + (60*1);
-                                _t = localtime(&long_t);
-                                char _buf[16];
-                                sprintf(_buf,"%d:%d",_t->tm_hour-12,_t->tm_min);
-                                std::string m = EXPIRE_MSG;
-                                m.append(_buf);
-                                size_t r = write(fd, m.c_str(), sizeof(m.c_str()));
-
-                                /** No bytes were written to FIFO, errno should be set with the error **/
-                                if(r <= 0)
-                                {
-                                    time_t tt = time(NULL);
-                                    struct tm tm;
-                                    char buf[32];
-                                    tm = *localtime(&tt);
-                                    strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
-                                    std::ofstream fLog (ERR_LOG, std::ios::app);
-                                    if(fLog.is_open())
-                                    {
-                                        fLog << "display_linux_msgbox(): Failed to write to FIFO -- " << strerror(errno) << " " << buf << "\n";
-                                    }
-                                }
-                                close(fd);
-                            //}
-
-                            /** remove FIFO, it will remain open if either end still has it open. **/
-                            //close(pipe);
-                            //unlink(pipe);
+                            close(fd);
 						}
 						else if( (fifteen && five && one && !expired) && ( current >= (t + msg_expired) ) )
 						{
 							expired = true;
 							int fd;
-							/*
-							char *pipe = (char*)"/tmp/fifo";
-							if(mkfifo(pipe, 0666) < 0)
-							{
-                                // Could not create FIFO
+							fd = open((char*)"/tmp/fifo", O_WRONLY);
+                            std::string m = EXPIRED_MSG;
+                            size_t r = write(fd, m.c_str(), m.length());
+
+                            /** No bytes were written to FIFO, errno should be set with the error **/
+                            if(r <= 0)
+                            {
                                 time_t tt = time(NULL);
                                 struct tm tm;
                                 char buf[32];
@@ -513,37 +438,10 @@ int msg_fifteen = 120;
                                 std::ofstream fLog (ERR_LOG, std::ios::app);
                                 if(fLog.is_open())
                                 {
-                                    fLog << "display_linux_msgbox(): Failed to mkfifo -- " << strerror(errno) << " " << buf << "\n";
+                                    fLog << "display_linux_msgbox(): Failed to write to FIFO -- " << strerror(errno) << " " << buf << "\n";
                                 }
                             }
-                            else
-                            {
-                            */
-                                fd = open((char*)"/tmp/fifo", O_WRONLY);
-
-                                std::string m = EXPIRED_MSG;
-                                size_t r = write(fd, m.c_str(), sizeof(m.c_str()));
-
-                                /** No bytes were written to FIFO, errno should be set with the error **/
-                                if(r <= 0)
-                                {
-                                    time_t tt = time(NULL);
-                                    struct tm tm;
-                                    char buf[32];
-                                    tm = *localtime(&tt);
-                                    strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
-                                    std::ofstream fLog (ERR_LOG, std::ios::app);
-                                    if(fLog.is_open())
-                                    {
-                                        fLog << "display_linux_msgbox(): Failed to write to FIFO -- " << strerror(errno) << " " << buf << "\n";
-                                    }
-                                }
-                                close(fd);
-                            //}
-
-                            /** remove FIFO, it will remain open if either end still has it open. **/
-                            //close(pipe);
-                            //unlink(pipe);
+                            close(fd);
 
 							/// Wait 60 seconds and then kill all user applications and log them off
 							kick_expired_accounts();
@@ -572,7 +470,6 @@ int msg_fifteen = 120;
 			expired = false;
 			mSleep(1);
 		}
-//unlink((char*)"/tmp/fifo");
 		mSleep(60); // sleep 1 second
 	}
 #endif // __linux__
