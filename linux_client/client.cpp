@@ -1092,7 +1092,6 @@ void check_allowed_accounts(std::string br)
 							}
 #endif // _WIN32
 			mSleep(5000);
-			kick_expired_accounts();
 		}
 	}
 }
