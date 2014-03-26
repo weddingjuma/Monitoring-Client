@@ -349,7 +349,7 @@ int msg_fifteen = 240;
                             else
                             {
                             */
-                                fd = open(pipe, O_WRONLY);
+                                fd = open((char*)"/tmp/fifo", O_WRONLY);
                                 struct tm *_t;
                                 time_t long_t = time(NULL) + (60*15);
                                 _t = localtime(&long_t);
@@ -403,7 +403,7 @@ int msg_fifteen = 240;
                             else
                             {
                             */
-                                fd = open(pipe, O_WRONLY);
+                                fd = open((char*)"/tmp/fifo", O_WRONLY);
                                 struct tm *_t;
                                 time_t long_t = time(NULL) + (60*5);
                                 _t = localtime(&long_t);
@@ -457,7 +457,7 @@ int msg_fifteen = 240;
                             else
                             {
                             */
-                                fd = open(pipe, O_WRONLY);
+                                fd = open((char*)"/tmp/fifo", O_WRONLY);
                                 struct tm *_t;
                                 time_t long_t = time(NULL) + (60*1);
                                 _t = localtime(&long_t);
@@ -511,7 +511,7 @@ int msg_fifteen = 240;
                             else
                             {
                             */
-                                fd = open(pipe, O_WRONLY);
+                                fd = open((char*)"/tmp/fifo", O_WRONLY);
 
                                 std::string m = EXPIRED_MSG;
                                 size_t r = write(fd, m.c_str(), sizeof(m.c_str()));
