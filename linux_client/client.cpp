@@ -330,10 +330,11 @@ int msg_fifteen = 240;
 						{
 							fifteen = true;
 							int fd;
+							/*
 							char *pipe = (char*)"/tmp/fifo";
 							if(mkfifo(pipe, 0666) < 0)
 							{
-                                /** Could not create FIFO **/
+                                // Could not create FIFO
                                 time_t tt = time(NULL);
                                 struct tm tm;
                                 char buf[32];
@@ -347,6 +348,7 @@ int msg_fifteen = 240;
                             }
                             else
                             {
+                            */
                                 fd = open(pipe, O_WRONLY);
                                 struct tm *_t;
                                 time_t long_t = time(NULL) + (60*15);
@@ -372,20 +374,21 @@ int msg_fifteen = 240;
                                     }
                                 }
                                 close(fd);
-                            }
+                            //}
 
                             /** remove FIFO, it will remain open if either end still has it open. **/
                             //close(pipe);
-                            unlink(pipe);
+                            //unlink(pipe);
 						}
 						else if( (fifteen && !five) && ( ((t + msg_one) >= current) && (current >= (t + msg_five)) ) )
 						{
 							five = true;
 							int fd;
+							/*
 							char *pipe = (char*)"/tmp/fifo";
 							if(mkfifo(pipe, 0666) < 0)
 							{
-                                /** Could not create FIFO **/
+                                // Could not create FIFO
                                 time_t tt = time(NULL);
                                 struct tm tm;
                                 char buf[32];
@@ -399,6 +402,7 @@ int msg_fifteen = 240;
                             }
                             else
                             {
+                            */
                                 fd = open(pipe, O_WRONLY);
                                 struct tm *_t;
                                 time_t long_t = time(NULL) + (60*5);
@@ -424,20 +428,21 @@ int msg_fifteen = 240;
                                     }
                                 }
                                 close(fd);
-                            }
+                            //}
 
 							/** remove FIFO, it will remain open if either end still has it open. **/
                             //close(pipe);
-                            unlink(pipe);
+                            //unlink(pipe);
 						}
 						else if( (fifteen && five && !one) && ( ((t + msg_expired) >= current) && (current >= (t + msg_one)) ) )
 						{
 							one = true;
 							int fd;
+							/*
 							char *pipe = (char*)"/tmp/fifo";
 							if(mkfifo(pipe, 0666) < 0)
 							{
-                                /** Could not create FIFO **/
+                                // Could not create FIFO
                                 time_t tt = time(NULL);
                                 struct tm tm;
                                 char buf[32];
@@ -451,6 +456,7 @@ int msg_fifteen = 240;
                             }
                             else
                             {
+                            */
                                 fd = open(pipe, O_WRONLY);
                                 struct tm *_t;
                                 time_t long_t = time(NULL) + (60*1);
@@ -476,20 +482,21 @@ int msg_fifteen = 240;
                                     }
                                 }
                                 close(fd);
-                            }
+                            //}
 
                             /** remove FIFO, it will remain open if either end still has it open. **/
                             //close(pipe);
-                            unlink(pipe);
+                            //unlink(pipe);
 						}
 						else if( (fifteen && five && one && !expired) && ( current >= (t + msg_expired) ) )
 						{
 							expired = true;
 							int fd;
+							/*
 							char *pipe = (char*)"/tmp/fifo";
 							if(mkfifo(pipe, 0666) < 0)
 							{
-                                /** Could not create FIFO **/
+                                // Could not create FIFO
                                 time_t tt = time(NULL);
                                 struct tm tm;
                                 char buf[32];
@@ -503,6 +510,7 @@ int msg_fifteen = 240;
                             }
                             else
                             {
+                            */
                                 fd = open(pipe, O_WRONLY);
 
                                 std::string m = EXPIRED_MSG;
@@ -523,11 +531,11 @@ int msg_fifteen = 240;
                                     }
                                 }
                                 close(fd);
-                            }
+                            //}
 
                             /** remove FIFO, it will remain open if either end still has it open. **/
                             //close(pipe);
-                            unlink(pipe);
+                            //unlink(pipe);
 
 							/// Wait 60 seconds and then kill all user applications and log them off
 							kick_expired_accounts();
@@ -1400,7 +1408,7 @@ std::vector<unsigned char> build_event(std::string pdata, std::string user)
        2 bytes == length of user name
        10 bytes == timestamp
        1 byte == '\0'
-    */	
+    */
     std::vector<unsigned char> EVENT;
     char buffer[16];
 
@@ -2562,6 +2570,23 @@ int main(int ac, char **av)
             fLog << "Configuration File Exception caught: " << e.what() << " -- " << buf << "\n";
         }
 	}
+
+	/*** Testing a new way of creating the FIFO ***/
+	char *pipe = (char*)"/tmp/fifo";
+    if(mkfifo(pipe, S_IROTH) < 0)
+    {
+        /** Could not create FIFO **/
+        time_t tt = time(NULL);
+        struct tm tm;
+        char buf[32];
+        tm = *localtime(&tt);
+        strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+        std::ofstream fLog (ERR_LOG, std::ios::app);
+        if(fLog.is_open())
+        {
+            fLog << "display_linux_msgbox(): Failed to mkfifo -- " << strerror(errno) << " " << buf << "\n";
+        }
+    }
 
 	// Sync up with the local machines time and wait for a new minute to roll around so that data is gathered on the minute
 	struct tm *tm_struct;
