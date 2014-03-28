@@ -320,14 +320,10 @@ void display_linux_msgbox()
 						time_t t = GUEST_EXPIRATION[user];
 						// Current account already exists, so check to see if expired
 						time_t current = time(NULL);
-int msg_fifteen = 120;
-int msg_five = 240;
-int	 msg_one = 420;
-int msg_expired = 480;
-                        //int msg_fifteen = ((2 * (60 * 60))-900);
-						//int msg_five = ((2 * (60 * 60))-300);
-						//int	 msg_one = ((2 * (60 * 60))-60);
-						//int msg_expired = ((2 * (60 * 60)));
+                        			int msg_fifteen = ((2 * (60 * 60))-900);
+						int msg_five = ((2 * (60 * 60))-300);
+						int	 msg_one = ((2 * (60 * 60))-60);
+						int msg_expired = ((2 * (60 * 60)));
 
 						if(!fifteen && ( ((t + msg_five) >= current) && (current >= (t + msg_fifteen)) ) )
 						{
