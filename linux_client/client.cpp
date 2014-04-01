@@ -320,7 +320,7 @@ void display_linux_msgbox()
 						time_t t = GUEST_EXPIRATION[user];
 						// Current account already exists, so check to see if expired
 						time_t current = time(NULL);
-                        			int msg_fifteen = ((2 * (60 * 60))-900);
+                        int msg_fifteen = ((2 * (60 * 60))-900);
 						int msg_five = ((2 * (60 * 60))-300);
 						int	 msg_one = ((2 * (60 * 60))-60);
 						int msg_expired = ((2 * (60 * 60)));
@@ -447,6 +447,9 @@ void display_linux_msgbox()
 							five = false;
 							one = false;
 							expired = false;
+
+							/** Remove guest account from map<>, will prevent guest account not being checked if they re-login **/
+							/*** TODO::: possibly find a solution to block the same account from logging into this machine again?? ***/
 						}
 					}
 					else
@@ -2383,7 +2386,7 @@ int main(int ac, char **av)
         read_xml("/opt/monitoring/config/default.cfg", pt);
 #endif // __linux__
 #ifdef _WIN32
-        read_xml("C:\\Tools\\Monitoring\\Config\\default.cfg")
+        read_xml("C:\\Tools\\Monitoring\\Config\\default.cfg", pt);
 #endif // _WIN32
 
         // Read in File paths
@@ -2474,6 +2477,7 @@ int main(int ac, char **av)
         }
 	}
 
+#ifdef __linux__
 	/*** Testing a new way of creating the FIFO ***/
 	char *pipe = (char*)"/tmp/fifo";
     if(mkfifo(pipe, 0777) < 0)
@@ -2490,6 +2494,7 @@ int main(int ac, char **av)
             fLog << "display_linux_msgbox(): Failed to mkfifo -- " << strerror(errno) << " " << buf << "\n";
         }
     }
+#endif
 
 	// Sync up with the local machines time and wait for a new minute to roll around so that data is gathered on the minute
 	struct tm *tm_struct;
