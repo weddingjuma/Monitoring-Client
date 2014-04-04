@@ -1,0 +1,8 @@
+c:\users\seth\documents\visual studio 2010\Projects\MonitoringClientService\MonitoringClientService\bin\Debug\MonitoringClientService.exe
+c:\users\seth\documents\visual studio 2010\Projects\MonitoringClientService\MonitoringClientService\bin\Debug\MonitoringClientService.pdb
+c:\users\seth\documents\visual studio 2010\Projects\MonitoringClientService\MonitoringClientService\obj\x86\Debug\ResolveAssemblyReference.cache
+c:\users\seth\documents\visual studio 2010\Projects\MonitoringClientService\MonitoringClientService\obj\x86\Debug\MonitoringClientService.exe
+c:\users\seth\documents\visual studio 2010\Projects\MonitoringClientService\MonitoringClientService\obj\x86\Debug\MonitoringClientService.pdb
+c:\users\seth\documents\visual studio 2010\Projects\MonitoringClientService\MonitoringClientService\obj\x86\Debug\MonitoringClientService.ProjectInstaller.resources
+c:\users\seth\documents\visual studio 2010\Projects\MonitoringClientService\MonitoringClientService\obj\x86\Debug\GenerateResource.read.1.tlog
+c:\users\seth\documents\visual studio 2010\Projects\MonitoringClientService\MonitoringClientService\obj\x86\Debug\GenerateResource.write.1.tlog
