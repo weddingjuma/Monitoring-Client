@@ -163,7 +163,7 @@ char *CONFIG = (char*)"/opt/monitoring/config/default.cfg";
 #endif
 #ifdef _WIN32
 char *EVENT_FILE = (char*)"C:\\Tools\\Monitoring\\data\\events.txt";
-char *ERR_LOG = (char*)"C:\\Tools\\Monitoring\\log\\errors.txt";
+char *ERR_LOG = (char*)"C:\\Tools\\Monitoring\\log\\monitoring-client.log";
 char *P_FILE = (char*)"C:\\Tools\\Monitoring\\Config\\masterlist.txt";
 char *CONFIG = (char*)"C:\\Tools\\Monitoring\\Config\\default.cfg";
 #endif
