@@ -12,12 +12,12 @@ depend() {
 
 start() {
   ebegin "Starting Monitoring Server"
-  start-stop-daemon  --background --start --exec /opt/monitoring/LUMServer &>/dev/null --pidfile /var/run/lumserver.pid --make-pidfile --name LUMServer
+  start-stop-daemon  --background --start --exec /opt/monitoring/monitoring-server &>/dev/null --pidfile /var/run/mserver.pid --make-pidfile --name monitoring-server
   eend $?
 }
 
 stop() {
   ebegin "Stopping Monitoring Server"
-  start-stop-daemon --stop --exec /opt/monitoring/LUMServer --pidfile /var/run/lumserver.pid
+  start-stop-daemon --stop --exec /opt/monitoring/monitoring-server --pidfile /var/run/mserver.pid
   eend $?
 }
