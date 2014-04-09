@@ -203,7 +203,7 @@ void write_program_file(std::string list);
 void set_program_list();
 std::string get_current_local_user();
 std::string get_current_remote_user();
-void mSleep(int ms); /* Sleep prototype for cross platform compatibility */
+void mSleep(int s); /* Sleep prototype for cross platform compatibility */
 
 /** Program Gathering prototypes **/
 std::string linux_get_running_proc(std::string current_user);
@@ -777,13 +777,13 @@ void create_directories()
     Sleep for a given amount of seconds.
     @param int milliseconds to sleep
 **/
-void mSleep(int ms)
+void mSleep(int s)
 {
 #ifdef __linux__
-	usleep(ms * 1000);
+	sleep(s);
 #endif
 #ifdef _WIN32
-	Sleep(ms * 1000);
+	Sleep(s * 1000);
 #endif
 }
 
@@ -815,6 +815,14 @@ void gather_data()
 			LOGGED_IN = true;
 
 			int pcount = prog_number();
+
+			// If the pcount is 0, usually before the client has successfully called home and gotten an up to date program list, then force it being set
+			if(pcount == 0)
+            {
+                set_program_list();
+                pcount = prog_number();
+            }
+
 			int block = 0;
 			if(pcount % EVENTSIZE != 0)
 				block = (pcount / EVENTSIZE) + 1;
@@ -1002,7 +1010,7 @@ void check_allowed_accounts(std::string br)
 								CloseHandle(pipe);
 							}
 #endif // _WIN32
-			mSleep(5000);
+			mSleep(50);
 			kick_expired_accounts();
 		}
 	}
@@ -1186,7 +1194,7 @@ void listen_thread()
 				acceptor.close();
 
 				// test
-				mSleep(30000);
+				mSleep(30);
             }
         }catch(std::exception &e){
             time_t tt = time(NULL);
