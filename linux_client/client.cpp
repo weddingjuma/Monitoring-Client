@@ -864,10 +864,17 @@ void gather_data()
 					r_blocks[i] = r_blocks[i] | r_tally;
 				}
 
-				if(tm_struct1->tm_sec < 55)
-					mSleep(5);
-				else
-					mSleep(60 - tm_struct1->tm_sec);
+				while(tm_struct1->tm_sec != 0)
+				{
+                    mSleep(1);
+                    time_t nt1 = time(NULL);
+                    tm_struct1 = localtime(&nt1);
+				}
+
+				//if(tm_struct1->tm_sec < 55)
+				//	mSleep(5);
+				//else
+				//	mSleep(60 - tm_struct1->tm_sec);
 			}
 			for(int i = 0; i < block; i++)
 			{
@@ -938,7 +945,7 @@ void gather_data()
 		/* Cleanup resources */
 		resource_cleanup();
 
-		mSleep(1);
+		//mSleep(1);
 	}
 }
 
@@ -1127,17 +1134,20 @@ void listen_thread()
 						{
 							line = EVENTS.back();
 							EVENTS.pop_back();
-                            const char* end = line.c_str() + strlen(line.c_str());
-                            event.insert(event.end(), line.c_str(), end);
-                            size_t sent = boost::asio::write(socket, boost::asio::buffer(event), boost::asio::transfer_all(), error);
-                            event.clear();
-                            totalSend += sent;
-                            std::ofstream fLog (ERR_LOG, std::ios::app);
-                            if(fLog.is_open())
-                            {
-                                fLog << "Server sent: " << tmp.data() << " -- response: " << line << "\n";
+							if(line.length() > 0)
+							{
+                                const char* end = line.c_str() + strlen(line.c_str());
+                                event.insert(event.end(), line.c_str(), end);
+                                size_t sent = boost::asio::write(socket, boost::asio::buffer(event), boost::asio::transfer_all(), error);
+                                event.clear();
+                                totalSend += sent;
+                                std::ofstream fLog (ERR_LOG, std::ios::app);
+                                if(fLog.is_open())
+                                {
+                                    fLog << "Server sent: " << tmp.data() << " -- response: " << line << "\n";
+                                }
+                                fLog.close();
                             }
-                            fLog.close();
 						}
 						// Clear file
 						//fstream f(EVENT_FILE, ios::out | ios::trunc);
