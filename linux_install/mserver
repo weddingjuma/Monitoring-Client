@@ -1,0 +1,23 @@
+#!/sbin/runscript
+# Copyright 2014 Seth Walsh
+# Distributed under the terms of the GNU General Public License v2
+
+description="Monitoring Server user and program statistical gathering service"
+
+# Dependencies of Monitoring Server
+depend() {
+  need net
+  need localmount
+}
+
+start() {
+  ebegin "Starting Monitoring Server"
+  start-stop-daemon  --background --start --exec /opt/monitoring/monitoring-server &>/dev/null --pidfile /var/run/mserver.pid --make-pidfile --name monitoring-server
+  eend $?
+}
+
+stop() {
+  ebegin "Stopping Monitoring Server"
+  start-stop-daemon --stop --exec /opt/monitoring/monitoring-server --pidfile /var/run/mserver.pid
+  eend $?
+}
