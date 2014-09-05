@@ -134,7 +134,7 @@ std::string EXPIRED_MSG; // Account has expired and login is no longer permitted
 std::vector<int> MSG_DISPLAY_TIMES; // Vector holding a set of minutes telling when to display the EXPIRE message when subtracted from the epiration time (15 min from expiration, 5, 1, etc..)
 
 static std::string BLOCKED_REGEX; // Holds the string of regex patterns for user accounts that will be blocked on this machine
-static std::map<std::string, std::vector<std::string> > SCRIPTS; // map Script => Time
+static std::map<std::string, std::vector<std::string> > SCRIPTS2; // map Script => Time
 static std::map<std::string, time_t> GUEST_EXPIRATION; // store current guest account logged in mapped to unix timestamp of when it was first found
 static std::vector<std::string> EVENTS; /** This will hold the currently gathered EVENTS that we'll send to the Server **/
 static std::vector<std::string> PROGRAM_LIST; /** This will hold the current program list **/
@@ -704,19 +704,20 @@ void execute_script()
 	time_t t = time(NULL);
 	tm_struct = localtime(&t);
 
-	std::map<std::string, std::vector<std::string> >::iterator it = SCRIPTS.begin();
-	for(it = SCRIPTS.begin(); it != SCRIPTS.end(); ++it)
+	std::map<std::string, std::vector<std::string> >::iterator it = SCRIPTS2.begin();
+	for(it = SCRIPTS2.begin(); it != SCRIPTS2.end(); ++it)
 	{
 		int _hour, _min;
 		std::string _s = it->second.at(tm_struct->tm_wday);
 		std::vector<std::string> _v = parse_script2(_s, ":");
+
 		_hour = atoi(_v.at(0).c_str());
 		_min = atoi(_v.at(1).c_str());
 
 		if(_hour == tm_struct->tm_hour && _min == tm_struct->tm_min)
 		{
 			// Execute script
-			system(it->first.c_str());
+			int _r = system(it->first.c_str());
 		}
 	}
 }
@@ -1088,12 +1089,6 @@ void listen_thread()
 						std::string line;
 
 						totalSend = 0;
-						std::ofstream fLog (ERR_LOG, std::ios::app);
-						if(fLog.is_open())
-						{
-							fLog << "Server sent: " << tmp.data() << " size of EVENTS: " << EVENTS.size() << "\n";
-						}
-						fLog.close();
 
 						// Read in stored EVENTS then clear the file
 						std::ifstream wfp(EVENT_FILE);
@@ -1141,12 +1136,6 @@ void listen_thread()
                                 size_t sent = boost::asio::write(socket, boost::asio::buffer(event), boost::asio::transfer_all(), error);
                                 event.clear();
                                 totalSend += sent;
-                                std::ofstream fLog (ERR_LOG, std::ios::app);
-                                if(fLog.is_open())
-                                {
-                                    fLog << "Server sent: " << tmp.data() << " -- response: " << line << "\n";
-                                }
-                                fLog.close();
                             }
 						}
 						// Clear file
@@ -1199,9 +1188,12 @@ void listen_thread()
                 /* Successfully called home, so reset last communication with Server */
 				LAST_SERVER_COMMUNICATION = time(NULL);
 
-				socket.shutdown(boost::asio::socket_base::shutdown_both); // testing
-				socket.close();
-				acceptor.close();
+                if(socket.is_open())
+                {
+                    socket.shutdown(boost::asio::socket_base::shutdown_both); // testing
+                    socket.close();
+                    //acceptor.close();
+                }
 
 				// test
 				mSleep(30);
@@ -1215,7 +1207,8 @@ void listen_thread()
             std::ofstream fLog (ERR_LOG, std::ios::app);
             if(fLog.is_open())
             {
-                fLog << e.what() << " -- " << buf << "\n";
+                std::cout << strerror(errno) << std::endl;
+                fLog << "Listen(): " << e.what() << " -- " << buf << "\n";
             }
             fLog.close();
         }
@@ -1257,8 +1250,7 @@ std::vector<unsigned char> build_event(std::string pdata, std::string user)
        10 bytes == timestamp
        1 byte == '\0'
     */
-	std::cout << "BUILDING EVENT FOR -- " << user << std::endl;
-    std::vector<unsigned char> EVENT;
+	std::vector<unsigned char> EVENT;
     char buffer[16];
 
     /* Pack the frame type flag */
@@ -1986,12 +1978,12 @@ bool linux_logged_in()
                 }
                 else
                 {
-                    if(splits[5].compare("(:0)") != 0)
+                    if(splits[4].compare("(:0)") != 0)
                     {
                         // Remote session
                         user u;
                         u.name = name;
-                        u.terminal = splits[5].substr(1,splits[5].length()-2);
+                        u.terminal = splits[4].substr(1,splits[4].length()-2);
                         u.local = false;
                         u.started = get_timestamp();
                         currentUsers.push_back(u);
@@ -2296,26 +2288,38 @@ int main(int ac, char **av)
             {
                 // Get the scripts command + path
                 std::string _cmd = v.second.get<std::string>("command");
-
                 std::string _times = v.second.get<std::string>("time", "notfound");
+
                 if(_times != "notfound")
                 {
                     std::vector<std::string> _v1;
-                    std::vector<std::string> _weekdays;
+                    std::vector<std::string> _weekdays(7,"0:00");
                     boost::algorithm::split(_v1, _times, boost::algorithm::is_any_of(","), boost::algorithm::token_compress_on);
+
                     BOOST_FOREACH(std::string s, _v1)
                     {
                         std::vector<std::string> _v2;
                         boost::algorithm::split(_v2, s, boost::algorithm::is_any_of(":"), boost::algorithm::token_compress_on);
 
                         // Set the appropriate day in the weekday array to the time found (if any) for that day
-                        _weekdays.at(atoi(_v2.at(0).c_str())) = (_v2.at(1) + ":" + _v2.at(2));
+                        if(atoi(_v2.at(0).c_str()) == 0)
+                        {
+                            // Set every weekday to the specified time
+                            for(int j = 0; j < _weekdays.size(); ++j)
+                            {
+                                _weekdays.at(j) = (_v2.at(1) + ":" + _v2.at(2));
+                            }
+                        }
+                        else
+                        {
+                            _weekdays.at(atoi(_v2.at(0).c_str())) = (_v2.at(1) + ":" + _v2.at(2));
+                        }
                     }
-
                     SCRIPTS.insert(std::pair<std::string, std::vector<std::string> >(_cmd, _weekdays) );
                 }
             }
         }
+        SCRIPTS2 = SCRIPTS;
 	}
 	catch(std::exception &e)
 	{
