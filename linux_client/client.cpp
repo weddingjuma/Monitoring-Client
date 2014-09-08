@@ -100,6 +100,7 @@ DEALINGS IN THE SOFTWARE.
 #include <WtsApi32.h>
 #include <UserEnv.h>
 #pragma comment(lib, "Userenv.lib")
+#pragma comment(lib, "Wtsapi32.lib")
 #endif
 
 /** Namespaces **/
@@ -719,7 +720,7 @@ void execute_script()
 			// Execute script
 			int _r = system(it->first.c_str());
 			char buf[32];
-            strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm_struct);
+            strftime(buf, 31, "%Y-%m-%d %H:%M:%S", tm_struct);
             std::ofstream fLog (ERR_LOG, std::ios::app);
             if(fLog.is_open())
             {
@@ -2245,7 +2246,7 @@ int main(int ac, char **av)
         read_xml("/opt/monitoring/config/default.cfg", pt);
 #endif // __linux__
 #ifdef _WIN32
-        read_xml("C:\\Tools\\Monitoring\\Config\\default.cfg")
+		boost::property_tree::xml_parser::read_xml("C:\\Tools\\Monitoring\\Config\\default.cfg", pt);
 #endif // _WIN32
 
         // Read in File paths
