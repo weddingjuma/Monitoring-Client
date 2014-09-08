@@ -100,6 +100,7 @@ DEALINGS IN THE SOFTWARE.
 #include <WtsApi32.h>
 #include <UserEnv.h>
 #pragma comment(lib, "Userenv.lib")
+#pragma comment(lib, "Wtsapi32.lib")
 #endif
 
 /** Namespaces **/
