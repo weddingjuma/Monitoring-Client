@@ -718,6 +718,15 @@ void execute_script()
 		{
 			// Execute script
 			int _r = system(it->first.c_str());
+			char buf[32];
+            strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm_struct);
+            std::ofstream fLog (ERR_LOG, std::ios::app);
+            if(fLog.is_open())
+            {
+                std::cout << strerror(errno) << std::endl;
+                fLog << "Cleanup() returned: " << _r << " -- " << buf << "\n";
+            }
+            fLog.close();
 		}
 	}
 }
