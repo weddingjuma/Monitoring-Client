@@ -1584,6 +1584,14 @@ bool win_find_running_process(std::string process)
 **/
 unsigned int tally_program_count(std::string ptree, int block)
 {
+    /** debugging file to resolve the high bits being flipped **/
+    ofstream dfile;
+#ifdef _WIN32
+    dfile.open("C:\\Temp\\bitfile.txt");
+#endif // _WIN32
+#ifdef __linux__
+    dfile.open("/tmp/bitfile.txt");
+#endif // __linux__
 	unsigned int current_progs = 0;
 	int bit_position = 0, cline = (((block-1)*32)+1);
 	for(int index = (block-1) * 32; index < block*32; index++)
@@ -1603,6 +1611,17 @@ unsigned int tally_program_count(std::string ptree, int block)
 				current_progs = (current_progs | (1 << index) );
 			}
 #endif
+            if(bit_position > PROGRAM_LIST.size())
+            {
+                time_t tt = time(NULL);
+                struct tm tm;
+                char buf[32];
+                tm = *localtime(&tt);
+                strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+                dfile << buf << "\n";
+                dfile << ptree << "\n";
+                dfile << "FOUND: " << found << "\n";
+            }
 #ifdef _WIN32
 			if(win_find_running_process(PROGRAM_LIST[index]))
 			{
@@ -1614,6 +1633,7 @@ unsigned int tally_program_count(std::string ptree, int block)
 		}
 		cline++; // Increment file line count
 	}
+	dfile.close();
 	return current_progs;
 }
 

@@ -55,6 +55,13 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ********************************************************************/
 
+/** Memory debugging **/
+//#define _CRTDBG_MAP_ALLOC
+//#include <stdlib.h>
+//#include <crtdbg.h>
+
+/** **/
+
 #include <iostream>
 #include <string>
 #include <boost/bind.hpp>
@@ -100,7 +107,7 @@ DEALINGS IN THE SOFTWARE.
 #include <WtsApi32.h>
 #include <UserEnv.h>
 #pragma comment(lib, "Userenv.lib")
-#pragma comment(lib, "Wtsapi32.lib")
+#pragma comment(lib, "WtsApi32.lib")
 #endif
 
 /** Namespaces **/
@@ -163,12 +170,15 @@ char *P_FILE = (char*)"/opt/monitoring/config/masterlist.txt";
 char *CONFIG = (char*)"/opt/monitoring/config/default.cfg";
 #endif
 #ifdef _WIN32
-char *EVENT_FILE = (char*)"C:\\Tools\\Monitoring\\data\\events.txt";
-char *ERR_LOG = (char*)"C:\\Tools\\Monitoring\\log\\errors.txt";
-char *P_FILE = (char*)"C:\\Tools\\Monitoring\\Config\\masterlist.txt";
-char *CONFIG = (char*)"C:\\Tools\\Monitoring\\Config\\default.cfg";
+//char *EVENT_FILE = (char*)"C:\\Tools\\Monitoring\\data\\events.txt";
+//char *ERR_LOG = (char*)"C:\\Tools\\Monitoring\\log\\errors.txt";
+//char *P_FILE = (char*)"C:\\Tools\\Monitoring\\Config\\masterlist.txt";
+//char *CONFIG = (char*)"C:\\Tools\\Monitoring\\Config\\default.cfg";
+std::string EVENT_FILE = "C:\\Tools\\Monitoring\\data\\events.txt";
+std::string ERR_LOG = "C:\\Tools\\Monitoring\\log\\errors.txt";
+std::string P_FILE = "C:\\Tools\\Monitoring\\Config\\masterlist.txt";
+std::string CONFIG = "C:\\Tools\\Monitoring\\Config\\default.cfg";
 #endif
-
 /** Windows Function prototypes go here **/
 /*
 	Function for the message displaying Thread on Windows clients.  Allows the service to display a message to the interactive user session using named pipes to pass messages to a secondary application
@@ -439,6 +449,7 @@ void display_windows_msgbox()
 		if(currentUsers.size() > 0)
 		{
 			boost::regex gp("^gp", boost::regex::perl|boost::regex::icase);
+			//boost::regex gp("^Adm", boost::regex::perl|boost::regex::icase);
 			boost::match_results<std::string::const_iterator> results;
 			cu_mutex.lock();
 			const std::string user = get_current_local_user();
@@ -470,7 +481,7 @@ void display_windows_msgbox()
 							HANDLE pipe = CreateNamedPipe(
 								"\\\\.\\pipe\\lm_pipe", // name of pipe
 								PIPE_ACCESS_OUTBOUND, // one way pipe -- outbound only
-								PIPE_TYPE_BYTE, // send data as byte-stream
+								PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_NOWAIT, // send data as byte-stream
 								1, // only allow 1 instance of this pipe
 								0, // no outbound buffer
 								0, // no inbound buffer
@@ -523,7 +534,7 @@ void display_windows_msgbox()
 							HANDLE pipe = CreateNamedPipe(
 								"\\\\.\\pipe\\lm_pipe", // name of pipe
 								PIPE_ACCESS_OUTBOUND, // one way pipe -- outbound only
-								PIPE_TYPE_BYTE, // send data as byte-stream
+								PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_NOWAIT, // send data as byte-stream
 								1, // only allow 1 instance of this pipe
 								0, // no outbound buffer
 								0, // no inbound buffer
@@ -577,7 +588,7 @@ void display_windows_msgbox()
 							HANDLE pipe = CreateNamedPipe(
 								"\\\\.\\pipe\\lm_pipe", // name of pipe
 								PIPE_ACCESS_OUTBOUND, // one way pipe -- outbound only
-								PIPE_TYPE_BYTE, // send data as byte-stream
+								PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_NOWAIT, // send data as byte-stream
 								1, // only allow 1 instance of this pipe
 								0, // no outbound buffer
 								0, // no inbound buffer
@@ -631,7 +642,7 @@ void display_windows_msgbox()
 							HANDLE pipe = CreateNamedPipe(
 								"\\\\.\\pipe\\lm_pipe", // name of pipe
 								PIPE_ACCESS_OUTBOUND, // one way pipe -- outbound only
-								PIPE_TYPE_BYTE, // send data as byte-stream
+								PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_NOWAIT, // send data as byte-stream
 								1, // only allow 1 instance of this pipe
 								0, // no outbound buffer
 								0, // no inbound buffer
@@ -719,15 +730,6 @@ void execute_script()
 		{
 			// Execute script
 			int _r = system(it->first.c_str());
-			char buf[32];
-            strftime(buf, 31, "%Y-%m-%d %H:%M:%S", tm_struct);
-            std::ofstream fLog (ERR_LOG, std::ios::app);
-            if(fLog.is_open())
-            {
-                std::cout << strerror(errno) << std::endl;
-                fLog << "Cleanup() returned: " << _r << " -- " << buf << "\n";
-            }
-            fLog.close();
 		}
 	}
 }
@@ -821,6 +823,9 @@ void gather_data()
 		/* Get logged in status */
 		if(logged_in())
 		{
+			//std::cout << "Psize: " << PROGRAM_LIST.size() << std::endl;
+			//std::cout << "Esize: " << EVENTS.size() << std::endl;
+
 			check_allowed_accounts(BLOCKED_REGEX);
 
 			LOGGED_IN = true;
@@ -841,15 +846,15 @@ void gather_data()
 				block = (pcount / EVENTSIZE);
 
 			unsigned int *blocks = new unsigned int[block]; /* Windows mod */
-			unsigned int *r_blocks = new unsigned int[block]; /* Windows mod */
+			//unsigned int *r_blocks = new unsigned int[block]; /* Windows mod */
 			for(int i = 0; i < block; ++i)
 			{
                 blocks[i] = 0;
-                r_blocks[i] = 0;
+                //r_blocks[i] = 0;
             }
 
 			//unsigned int *running_tally = new unsigned int[block];//unsigned int *running_blocks = new unsigned int[block]; /* Running tally of programs, added onto every 5 seconds */
-			std::string pdata,rpdata;
+			std::string pdata;//,rpdata;
 
 			// While UNIX epoch timestamp is less than current minute + 60 seconds loop and every 5 seconds within that window poll the running programs and logically OR with a running
 			// tally of programs found running.  Once the window has elapsed we can write to disk
@@ -861,19 +866,19 @@ void gather_data()
 			{
 				time_t nt = time(NULL);
 				tm_struct1 = localtime(&nt);
-				for(int i = 0; i < block; i++)
+				for(int j = 0; j < block; j++)
 				{
 					std::string processes = linux_get_running_proc(get_current_local_user()); /** TODO!!!!  -- need to deal with remote logins on linux machines (windows?) **/
-					unsigned int tally = tally_program_count(processes, i+1);
-					blocks[i] = blocks[i] | tally;
+					unsigned int tally = tally_program_count(processes, j+1);
+					blocks[j] = blocks[j] | tally;
 					CURRENT_EVENT_BLOCK = blocks;
 				}
-				for(int i = 0; i < block; i++)
-				{
-					std::string r_processes = linux_get_running_proc(get_current_remote_user()); /** TODO!!!!  -- need to deal with remote logins on linux machines (windows?) **/
-					unsigned int r_tally = tally_program_count(r_processes, i+1);
-					r_blocks[i] = r_blocks[i] | r_tally;
-				}
+				//for(int i = 0; i < block; i++)
+				//{
+				//	std::string r_processes = linux_get_running_proc(get_current_remote_user()); /** TODO!!!!  -- need to deal with remote logins on linux machines (windows?) **/
+				//	unsigned int r_tally = tally_program_count(r_processes, i+1);
+				//	r_blocks[i] = r_blocks[i] | r_tally;
+				//}
 
 				while(tm_struct1->tm_sec != 0)
 				{
@@ -887,65 +892,81 @@ void gather_data()
 				//else
 				//	mSleep(60 - tm_struct1->tm_sec);
 			}
-			for(int i = 0; i < block; i++)
+			for(int k = 0; k < block; k++)
 			{
 				char buffer[32];
-				char rbuffer[32];
-				sprintf(buffer, "%08X", blocks[i]);
-				sprintf(rbuffer, "%08X",r_blocks[i]);
-				rpdata += rbuffer;
+				//char rbuffer[32];
+				sprintf(buffer, "%08X", blocks[k]);
+				//sprintf(rbuffer, "%08X",r_blocks[i]);
+				//rpdata += rbuffer;
 				pdata += buffer;
 			}
 
-            std::vector<unsigned char> EVENT,REVENT;
+            std::vector<unsigned char> EVENT;//,REVENT;
             if(get_current_local_user().length()>0)
                 EVENT = build_event(pdata, get_current_local_user());
-            if(get_current_remote_user().length()>0)
-                REVENT = build_event(rpdata, get_current_remote_user());
+            //if(get_current_remote_user().length()>0)
+            //    REVENT = build_event(rpdata, get_current_remote_user());
 
 			/* NEW windows mod*/
-			delete blocks;
+			delete blocks;//, r_blocks;
+			//delete tm_struct, tm_struct1;
 
 			/* Store the EVENT in case the Client is unable to send it to the Server */
 			try{
-				std::string line = "", rline = "";
-				for(unsigned i = 0; i < EVENT.size(); i++)
+				std::string line = "";//, rline = "";
+
+				if(EVENT.size() > 0)
 				{
-					char c = EVENT[i];
-					line = line + c;
+					for(unsigned l = 0; l < EVENT.size(); l++)
+					{
+						char c = EVENT[l];
+						line = line + c;
+					}
+
+					/* Add the current EVENT to the back of the vector */
+					EVENTS.push_back(line);
 				}
 
-				/* Add the current EVENT to the back of the vector */
-				EVENTS.push_back(line);
+				//if(REVENT.size() > 0)
+				//{
+				//	for(unsigned i = 0; i < REVENT.size(); i++)
+				//	{
+				//		char c = REVENT[i];
+				//		rline = rline + c;
+				//	}
+				//	EVENTS.push_back(rline);
+				//}
 
-				for(unsigned i = 0; i < REVENT.size(); i++)
-				{
-					char c = REVENT[i];
-					rline = rline + c;
-				}
-				EVENTS.push_back(rline);
+				//line = line + "\n";
 
-				line = line + "\n";
+				/* Temporarily disabling the EVENT local storage to check File memory leaks within the Kernel
 				ofstream efile;
 				try{
-				efile.open(EVENT_FILE, std::ios_base::app);
-				if(efile.is_open())
-				{
-					efile << line.c_str();
-
-				}
-				else
-				{
 					efile.open(EVENT_FILE, std::ios_base::app);
-					efile << line.c_str();
-				}
+					if(efile.is_open())
+					{
+						efile << line.c_str();
+					}
+					else
+					{
+						efile.open(EVENT_FILE, std::ios_base::app);
+						efile << line.c_str();
+					}
 				}catch(std::exception e)
 				{
-					/** LOGGING TODO **/
+					//// LOGGING TODO
+					efile.flush();
+					efile.close();
+					//std::cout << "Some error with EVENT file logging: " << e.what() << std::endl;
 				}
+				efile.flush();
 				efile.close();
+
+				*/
 			}catch(std::exception &e){
-				/** LOGGING TODO **/
+				///// LOGGING TODO
+				//std::cout << "Some other error: " << e.what() << std::endl;
 			}
 		}
 		else
@@ -957,6 +978,8 @@ void gather_data()
 		resource_cleanup();
 
 		//mSleep(1);
+
+		//_CrtDumpMemoryLeaks();
 	}
 }
 
@@ -990,16 +1013,21 @@ void check_allowed_accounts(std::string br)
 #ifdef __linux__
 #endif // __linux__
 #ifdef _WIN32
-			HANDLE pipe = CreateNamedPipe(
+			HANDLE pipe = NULL;
+			try{
+			pipe = CreateNamedPipe(
 								"\\\\.\\pipe\\lm_pipe", // name of pipe
 								PIPE_ACCESS_OUTBOUND, // one way pipe -- outbound only
-								PIPE_TYPE_BYTE, // send data as byte-stream
+								PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_NOWAIT, // send data as byte-stream
 								1, // only allow 1 instance of this pipe
 								0, // no outbound buffer
 								0, // no inbound buffer
 								0, // use default wait time
 								NULL // use default security attributes
 								);
+			}catch(std::exception &e){
+				//std::cout << e.what() << std::endl;
+			}
 
 							if(pipe == NULL | pipe == INVALID_HANDLE_VALUE){
 								//std::cout << "FAILED TO CREATE PIPE!" << std::endl;
@@ -1028,9 +1056,19 @@ void check_allowed_accounts(std::string br)
 								CloseHandle(pipe);
 							}
 #endif // _WIN32
-			mSleep(50);
+			mSleep(5);
 			kick_expired_accounts();
 		}
+	}
+}
+
+void listen_thread_starter()
+{
+	while(true)
+	{
+//		std::cout << "Spawning new listen thread..." << std::endl;
+		boost::thread lt(listen_thread);
+        lt.join();
 	}
 }
 
@@ -1042,186 +1080,167 @@ void check_allowed_accounts(std::string br)
 **/
 void listen_thread()
 {
-	unsigned int totalSend;
-    while(true)
-    {
+    time_t tt = time(NULL);
+    struct tm tm;
+    char buf[32];
+    tm = *localtime(&tt);
+    strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+
+    /* Set the running flag so the application knows this thread is active and we don't need to join it for testing */
+    L_RUNNING = true;
+    std::vector<char> event;
+    try{
+        boost::asio::io_service io_service;
+
+        // Listen for incoming connections
+        boost::asio::ip::tcp::acceptor acceptor(io_service, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), LISTEN_PORT));
+        acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+        boost::asio::ip::tcp::socket socket(io_service);
+#ifdef _WIN32
+        int32_t timeout = 10000;
+        setsockopt(socket.native(), SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+        setsockopt(socket.native(), SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(timeout));
+#endif
+#ifdef __linux__
+        struct timeval tv;
+        tv.tv_sec = 10;
+        tv.tv_usec = 0;
+        setsockopt(socket.native(), SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+        setsockopt(socket.native(), SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv));
+#endif
+        int optval =0;
+        int ret = setsockopt(socket.native(), SOL_SOCKET, SO_KEEPALIVE, &optval, sizeof(optval));
+        acceptor.accept(socket); // Wait for connection from client
+
+        // Client connected
+        boost::system::error_code error;
+        boost::array<unsigned char, 4096> tmp; // 4k (should be enough??)
+        size_t len = socket.read_some(boost::asio::buffer(tmp), error);
+        tmp[len] = '\0';
+
+        if(tmp[0] == '2' && len == 1)
+        {
+            /* Send EVENTs */
+            if(LOGGED_IN)
+            {
+                time_t tt = time(NULL);
+                struct tm tm;
+                char buf[32];
+                tm = *localtime(&tt);
+
+                // Read all EVENTs in from file
+                size_t len = 0;
+                size_t read;
+                std::string line;
+                unsigned int totalSend = 0;
+
+                // Read in stored EVENTS then clear the file
+                /** The file reading portion seems to not be doing anything useful at this point in time...
+                - TODO!! Fix storing EVENTS in File
+                **/
+
+                /** Remove any exact duplicate EVENTS, although it is taken care of at the MySQL level, this will prevent that overhead for a little overhead here **/
+                boost::mutex mtx;
+                mtx.lock();
+                std::sort(EVENTS.begin(), EVENTS.end());
+                EVENTS.erase(std::unique(EVENTS.begin(), EVENTS.end()), EVENTS.end());
+
+                /** Send current EVENT **/
+                if(EVENTS.empty())
+                {
+                    line = get_current_event();
+                    const char* end = line.c_str() + strlen(line.c_str());
+                    event.insert(event.end(), line.c_str(), end);
+                    size_t sent = boost::asio::write(socket, boost::asio::buffer(event), boost::asio::transfer_all(), error);
+                    event.clear();
+                    totalSend += sent;
+                }
+                while(!EVENTS.empty())
+                {
+                    line = EVENTS.back();
+                    EVENTS.pop_back();
+                    if(line.length() > 0)
+                    {
+                        const char* end = line.c_str() + strlen(line.c_str());
+                        event.insert(event.end(), line.c_str(), end);
+                        size_t sent = boost::asio::write(socket, boost::asio::buffer(event), boost::asio::transfer_all(), error);
+                        event.clear();
+                        totalSend += sent;
+                    }
+                }
+                EVENTS.clear();
+                mtx.unlock();
+                LAST_SERVER_COMMUNICATION = time(NULL);
+            }
+            else
+            {
+                char c[1];
+                c[0] = '8';
+                c[1] = '\0';
+                size_t sent = boost::asio::write(socket, boost::asio::buffer(c), boost::asio::transfer_all(), error);
+            }
+        }
+        if(tmp[0] == '1')
+        {
+            /* Read in new Program List file */
+            std::string s = (char *)tmp.data();
+            s = s.substr(1);
+#ifdef _WIN32
+            std::remove(P_FILE.c_str());
+            std::ofstream ofile;
+            ofile.open(P_FILE.c_str());
+#endif
+#ifdef __linux__
+            std::remove(P_FILE);
+            std::ofstream ofile;
+            ofile.open(P_FILE);
+#endif
+            vector<string> fields;
+            boost::algorithm::split(fields, s, boost::algorithm::is_any_of(":"));
+            for(size_t n = 0; n < fields.size(); n++)
+            {
+                if(fields[n].compare("") != 0)
+                {
+                    ofile << fields[n]; /* write to file */
+                    ofile << "\n";
+                }
+            }
+            ofile.flush();
+            ofile.close(); /* close file */
+            /* Needed??? *///LAST_SERVER_COMMUNICATION = time(NULL);
+        }
+        // read_some() will exit with boost::asio::error::eof which is how we know to break the loop
+        if(error == boost::asio::error::eof){
+            //break;
+        }
+        else
+        {
+#ifdef _WIN32
+            //throw boost::system::system_error(error); // Throw some other error
+#endif
+        }
+
+        /* Successfully called home, so reset last communication with Server */
+        LAST_SERVER_COMMUNICATION = time(NULL);
+        if(socket.is_open())
+        {
+            socket.shutdown(boost::asio::socket_base::shutdown_both); // testing
+            socket.close();
+            acceptor.close();
+        }
+    }catch(std::exception &e){
         time_t tt = time(NULL);
         struct tm tm;
         char buf[32];
         tm = *localtime(&tt);
-
-        /* Set the running flag so the application knows this thread is active and we don't need to join it for testing */
-        L_RUNNING = true;
-        std::vector<char> event;
-        try{
-            boost::asio::io_service io_service;
-
-            // Listen for incoming connections
-			boost::asio::ip::tcp::acceptor acceptor(io_service, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), LISTEN_PORT));
-			acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
-            for(;;)
-            {
-                boost::asio::ip::tcp::socket socket(io_service);
-#ifdef _WIN32
-				int32_t timeout = 10000;
-				setsockopt(socket.native(), SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
-				setsockopt(socket.native(), SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(timeout));
-#endif
-#ifdef __linux__
-				struct timeval tv;
-				tv.tv_sec = 10;
-				tv.tv_usec = 0;
-				setsockopt(socket.native(), SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
-				setsockopt(socket.native(), SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv));
-#endif
-				acceptor.accept(socket); // Wait for connection from client
-
-                // Client connected
-                boost::system::error_code error;
-                boost::array<unsigned char, 4096> tmp; // 4k (should be enough??)
-				size_t len = socket.read_some(boost::asio::buffer(tmp), error);
-				tmp[len] = '\0';
-
-				if(tmp[0] == '2' && len == 1)
-                {
-                    /* Send EVENTs */
-					if(LOGGED_IN)
-					{
-						time_t tt = time(NULL);
-						struct tm tm;
-						char buf[32];
-						tm = *localtime(&tt);
-
-						// Read all EVENTs in from file
-						size_t len = 0;
-						size_t read;
-
-						std::string line;
-
-						totalSend = 0;
-
-						// Read in stored EVENTS then clear the file
-						std::ifstream wfp(EVENT_FILE);
-						std::string wline;
-						while(wfp.good())
-						{
-							getline(wfp,wline);
-							if(wline.length() > 0)
-							{
-                                EVENTS.push_back(wline);
-                            }
-						}
-						wfp.close();
-						std::fstream _f(EVENT_FILE, ios::in);
-						if(_f)
-						{
-							_f.close();
-							_f.open(EVENT_FILE, ios::out | ios::trunc);
-						}
-						_f.close();
-
-						/** Remove any exact duplicate EVENTS, although it is taken care of at the MySQL level, this will prevent that overhead for a little overhead here **/
-						std::sort(EVENTS.begin(), EVENTS.end());
-						EVENTS.erase(std::unique(EVENTS.begin(), EVENTS.end()), EVENTS.end());
-
-						/** TESTING current EVENT **/
-						if(EVENTS.empty())
-						{
-                            line = get_current_event();
-                            const char* end = line.c_str() + strlen(line.c_str());
-                            event.insert(event.end(), line.c_str(), end);
-                            size_t sent = boost::asio::write(socket, boost::asio::buffer(event), boost::asio::transfer_all(), error);
-                            event.clear();
-                            totalSend += sent;
-						}
-
-						while(!EVENTS.empty())
-						{
-							line = EVENTS.back();
-							EVENTS.pop_back();
-							if(line.length() > 0)
-							{
-                                const char* end = line.c_str() + strlen(line.c_str());
-                                event.insert(event.end(), line.c_str(), end);
-                                size_t sent = boost::asio::write(socket, boost::asio::buffer(event), boost::asio::transfer_all(), error);
-                                event.clear();
-                                totalSend += sent;
-                            }
-						}
-						// Clear file
-						//fstream f(EVENT_FILE, ios::out | ios::trunc);
-						LAST_SERVER_COMMUNICATION = time(NULL);
-					}
-					else
-					{
-						char c[1];
-						c[0] = '8';
-						c[1] = '\0';
-						size_t sent = boost::asio::write(socket, boost::asio::buffer(c), boost::asio::transfer_all(), error);
-					}
-                }
-                if(tmp[0] == '1')
-                {
-                    /* Read in new Program List file */
-					std::string s = (char *)tmp.data();
-					s = s.substr(1);
-                    std::remove(P_FILE);
-                    std::ofstream ofile;
-                    ofile.open(P_FILE);
-
-                    vector<string> fields;
-                    boost::algorithm::split(fields, s, boost::algorithm::is_any_of(":"));
-                    for(size_t n = 0; n < fields.size(); n++)
-                    {
-                        if(fields[n].compare("") != 0)
-                        {
-                            ofile << fields[n]; /* write to file */
-                            ofile << "\n";
-                        }
-                    }
-
-                    ofile.close(); /* close file */
-					/* Needed??? *///LAST_SERVER_COMMUNICATION = time(NULL);
-                }
-
-                // read_some() will exit with boost::asio::error::eof which is how we know to break the loop
-                if(error == boost::asio::error::eof){
-                    //break;
-                }
-                else
-                {
-#ifdef _WIN32
-                    throw boost::system::system_error(error); // Throw some other error
-#endif
-                }
-
-                /* Successfully called home, so reset last communication with Server */
-				LAST_SERVER_COMMUNICATION = time(NULL);
-
-                if(socket.is_open())
-                {
-                    socket.shutdown(boost::asio::socket_base::shutdown_both); // testing
-                    socket.close();
-                    //acceptor.close();
-                }
-
-				// test
-				mSleep(30);
-            }
-        }catch(std::exception &e){
-            time_t tt = time(NULL);
-            struct tm tm;
-            char buf[32];
-            tm = *localtime(&tt);
-            strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
-            std::ofstream fLog (ERR_LOG, std::ios::app);
-            if(fLog.is_open())
-            {
-                std::cout << strerror(errno) << std::endl;
-                fLog << "Listen(): " << e.what() << " -- " << buf << "\n";
-            }
-            fLog.close();
+        strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+        std::ofstream fLog (ERR_LOG, std::ios::app);
+        if(fLog.is_open())
+        {
+            //std::cout << strerror(errno) << std::endl;
+            ///fLog << "Listen(): " << e.what() << " -- " << buf << "\n";
         }
+        fLog.close();
     }
 }
 
@@ -1401,7 +1420,12 @@ int linux_prog_number()
     FILE *fp;
     size_t read;
 
+#ifdef _WIN32
+    fp = fopen(P_FILE.c_str(), "r");
+#endif
+#ifdef __linux__
     fp = fopen(P_FILE, "r");
+#endif
     if(fp == NULL)
     {
         /** Log File couldn't open program list **/
@@ -1490,22 +1514,52 @@ void linux_set_program_list()
 **/
 void win_set_program_list()
 {
-	pf_mutex.lock();
-	ifstream FILE("C:\\Tools\\Monitoring\\Config\\masterlist.txt");
-	string line;
-	if(FILE.is_open())
-	{
-		int count = 0;
-		while(FILE.good())
+	try{
+		pf_mutex.lock();
+		ifstream FILE("C:\\Tools\\Monitoring\\Config\\masterlist.txt");
+		string line;
+/*
+	ofstream dfile;
+#ifdef _WIN32
+	dfile.open("C:\\Temp\\progfile.txt");
+#endif
+#ifdef __linux__
+	dfile.open("/tmp/progfile.txt");
+#endif
+*/
+		PROGRAM_LIST.clear(); /** testing a fix for double length list **/
+		if(FILE.is_open())
 		{
-			getline(FILE, line);
-			PROGRAM_LIST.push_back(line);
-			count++;
+			int count = 0;
+			while(FILE.good())
+			{
+				getline(FILE, line);
+				PROGRAM_LIST.push_back(line);
+				//dfile << "Count: " << count << "\n";
+				//dfile << "Prog: " << line << "\n";
+				count++;
+			}
+			FILE.close();
+			PROGRAM_COUNT = count;
+			//dfile << "Final Count: " << count << "\n";
 		}
 		FILE.close();
-		PROGRAM_COUNT = count;
-	}
-	pf_mutex.unlock();
+		//dfile.close();
+		pf_mutex.unlock();
+	}catch(std::exception &e){
+        time_t tt = time(NULL);
+        struct tm tm;
+        char buf[32];
+        tm = *localtime(&tt);
+        strftime(buf, 31, "%Y-%m-%d %H:%M:%S", &tm);
+        std::ofstream fLog (ERR_LOG, std::ios::app);
+        if(fLog.is_open())
+        {
+                //std::cout << strerror(errno) << std::endl;
+                ///fLog << "Set_program_list(): " << e.what() << " -- " << buf << "\n";
+        }
+        fLog.close();
+    }
 }
 
 
@@ -1585,6 +1639,15 @@ bool win_find_running_process(std::string process)
 **/
 unsigned int tally_program_count(std::string ptree, int block)
 {
+
+	ofstream dfile;
+#ifdef _WIN32
+	dfile.open("C:\\Temp\\bitfile.txt");
+#endif
+#ifdef __linux__
+	dfile.open("/tmp/bitfile.txt");
+#endif
+
 	unsigned int current_progs = 0;
 	int bit_position = 0, cline = (((block-1)*32)+1);
 	for(int index = (block-1) * 32; index < block*32; index++)
@@ -1608,6 +1671,29 @@ unsigned int tally_program_count(std::string ptree, int block)
 			if(win_find_running_process(PROGRAM_LIST[index]))
 			{
 				current_progs = (current_progs | (1 << bit_position) );
+
+				/** Below is debugging code to try and determine why high bits are being flipped when there is no program for that position **/
+				if(bit_position > 15 && block == 2)
+				{
+					time_t tt = time(NULL);
+					struct tm tm;
+					char buf[32];
+					tm = *localtime(&tt);
+					strftime(buf, 32, "%Y-%m-%d %H:%M:%S", &tm);
+					dfile << buf << "\n";
+					dfile << ptree << "\n";
+					dfile << "Index: " << index << "\n";
+					dfile << "Block: " << block << "\n";
+					dfile << "Cline: " << cline << "\n";
+					dfile << "Size: " << PROGRAM_LIST.size() << "\n";
+					dfile << "Current_progs: " << current_progs << "\n";
+					dfile << "Bit_Position: " << bit_position << "\n";
+					dfile << "Program: " << PROGRAM_LIST[index] << "\n";
+					for(int x = 0; x < PROGRAM_LIST.size(); x++)
+					{
+						dfile << "Program: " << x << " " << PROGRAM_LIST[x] << "\n";
+					}
+				}
 			}
 #endif
 			// Increment bit position
@@ -1615,6 +1701,8 @@ unsigned int tally_program_count(std::string ptree, int block)
 		}
 		cline++; // Increment file line count
 	}
+	dfile.close();
+	/** End debugging file output section **/
 	return current_progs;
 }
 
@@ -1627,30 +1715,49 @@ unsigned int tally_program_count(std::string ptree, int block)
 **/
 std::string linux_get_running_proc(std::string current_user)
 {
-    std::string cmd = "ps -u " + current_user;
+    //std::string cmd = "ps -u " + current_user;
     std::string result = "";
-    char *command = new char[cmd.length()+1];
-    strcpy(command, cmd.c_str());
+    //char *command = new char[cmd.length()+1];
+    //strcpy(command, cmd.c_str());
+	char buffer[128];
 
+	/******* Try / Catch to prevent errors causing the pointer command* not to get free'd? ***********/
     FILE *fp;
 #ifdef __linux__
+	std::string cmd = "ps -u " + current_user;
+	char *command = new char[cmd.length()+1];
+    strcpy(command, cmd.c_str());
     fp = popen(command, "r");
+	if(fp == NULL)
+    {
+		delete [] command;
+        return "";
+    }
+	while(fgets(command, sizeof(command), fp) != NULL)
+    {
+        result += command;
+    }
 #endif
 #ifdef _WIN32
 	fp = _popen("tasklist", "r");
 #endif
     if(fp == NULL)
     {
+		//delete [] command;
         return "";
     }
-    while(fgets(command, sizeof(command), fp) != NULL)
+    while(fgets(buffer, sizeof(buffer), fp) != NULL)
     {
-        result += command;
+        result += buffer;
     }
 #ifdef __linux__
     pclose(fp);
+	delete [] command;
 #endif
-    delete [] command;
+#ifdef _WIN32
+    //delete [] command;
+	_pclose(fp);
+#endif
     return result;
 }
 
@@ -1660,8 +1767,11 @@ std::string linux_get_running_proc(std::string current_user)
 void resource_cleanup()
 {
 	currentUsers.clear();
-	loginRestrictedAccounts.clear();
-    timeLimitAccounts.clear();
+	//loginRestrictedAccounts.clear();
+    //timeLimitAccounts.clear();
+	//int x = currentUsers.size();
+	//x = loginRestrictedAccounts.size();
+	//x = timeLimitAccounts.size();
 }
 
 /**
@@ -1892,14 +2002,14 @@ bool win_logged_in()
 	  CloseHandle(hDupToken);
 	  CloseHandle(hToken);
 
-  /** REMOVING THIS WHILE DEBUGGIN **/
-      username = szTempBuf;
+/** REMOVING THIS WHILE DEBUGGIN **/
+      //username = szTempBuf;
 
 /** Remove below code when finished debugging because you can't get the correct user name otherwise **/
-//char un[UNLEN+1];
-//DWORD username_size = sizeof(un);
-//GetUserName(un, &username_size);
-//username = un;
+char un[UNLEN+1];
+DWORD username_size = sizeof(un);
+GetUserName(un, &username_size);
+username = un;
 /** When done debugging remove the above stuff ^^ **/
 	if(username.size() > 0)
 		olines.push_back(username);
@@ -2095,6 +2205,7 @@ void write_program_file(std::string list)
 	and begins calling home to tell the Server it exists.  The Server will respond with the appropriate communication.  This thread will routinely check the last known communication with
 	the Server, and if it reaches a specified time elapsed threshold without being contacted, it will call home again.
 **/
+bool NEVER_CONTACTED_SERVER = true;
 void call_home_task() /** FINISHED AND TESTED **/
 {
 	while(true)
@@ -2106,7 +2217,7 @@ void call_home_task() /** FINISHED AND TESTED **/
 			which will cause the Server to add the client to the list of machines being monitored if it is not already on it, and cause the Server to send a
 			fresh program file containing the up to date list of programs being monitored.
 		*/
-		if( (current_time - LAST_SERVER_COMMUNICATION) > ( CALL_HOME*60) )
+		if( (current_time - LAST_SERVER_COMMUNICATION) > ( CALL_HOME*60) || ( NEVER_CONTACTED_SERVER) )
 		{
 			try{
 				boost::asio::io_service io_service;
@@ -2129,7 +2240,7 @@ void call_home_task() /** FINISHED AND TESTED **/
 				std::string os = "1";
 #endif
 				std::string message = flag + os + std::string(mname);
-
+//std::cout << "Calling home.." << std::endl;
 				/* If the server is not responding then the bytes sent will be 0, so loop, with a small delay, until the server responds because all other communication attempts with the Server
 				are pointless if it isn't responding in the first place so it's acceptable to block within this loop */
 				size_t sent = 0;
@@ -2151,7 +2262,8 @@ void call_home_task() /** FINISHED AND TESTED **/
 
 				/* Successfully called home, so reset last communication with Server */
 				LAST_SERVER_COMMUNICATION = time(NULL);
-
+				NEVER_CONTACTED_SERVER = false;
+//std::cout << "Called home at: " << LAST_SERVER_COMMUNICATION << std::endl;
 				/* Write file */
 				write_program_file(output);
 			}
@@ -2188,21 +2300,21 @@ void run_tasks()
 		/* Check that Listening Thread is already running */
         if(!L_RUNNING)
         {
-            boost::thread lt(listen_thread);
-            lt.detach();
-
 			/* THREAD -- calls home if the Server has not contacted this Client within CONTACT_TIME timeframe */
-			boost::threadpool::pool home(2);
+			boost::threadpool::pool home(1);
 
-			boost::threadpool::pool gather(2);
+			boost::threadpool::pool gather(1);
 
 			/* THREAD -- displays message box */
-			boost::threadpool::pool mbox(2);
+			boost::threadpool::pool mbox(1);
 
 			/* Run the thread pools */
 			home.schedule(&call_home_task);
 			gather.schedule(&gather_data);
 			mbox.schedule(&display_msgbox);
+
+            boost::thread lt(listen_thread_starter);
+            //lt.join();
 		}
     }
 }
@@ -2246,7 +2358,7 @@ int main(int ac, char **av)
         read_xml("/opt/monitoring/config/default.cfg", pt);
 #endif // __linux__
 #ifdef _WIN32
-		boost::property_tree::xml_parser::read_xml("C:\\Tools\\Monitoring\\Config\\default.cfg", pt);
+        read_xml("C:\\Tools\\Monitoring\\Config\\default.cfg", pt);
 #endif // _WIN32
 
         // Read in File paths
@@ -2300,7 +2412,7 @@ int main(int ac, char **av)
                 std::string _cmd = v.second.get<std::string>("command");
                 std::string _times = v.second.get<std::string>("time", "notfound");
 
-                if(_times != "notfound")
+                if(_times != "" || _cmd != "")
                 {
                     std::vector<std::string> _v1;
                     std::vector<std::string> _weekdays(7,"0:00");
